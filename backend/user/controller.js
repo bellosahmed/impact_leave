@@ -2,6 +2,25 @@ const User = require('./model');
 const bcrypt = require('bcryptjs');
 const { createSendtoken } = require('../middleware/auth');
 
+const getMe = async (req, res) => {
+    try {
+        // The `auth` middleware already found the user and attached it to `req.user`
+        // We just re-fetch it to ensure we have the latest data and exclude the password.
+        const user = await User.findById(req.user.id).select('-password');
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found", status: false });
+        }
+
+        // Send back the user data
+        res.status(200).json(user);
+    } catch (error) {
+        console.error('Error in getMe controller:', error.message);
+        res.status(500).json({ message: "Server error while fetching user profile." });
+    }
+};
+
+
 // User profile
 const getuser = async (req, res) => {
     const userId = req.params.id; // Get the id of the user
@@ -83,4 +102,4 @@ const deluser = async (req, res) => {
     }
 };
 
-module.exports = { getuser, edituser, deluser };
+module.exports = { getuser, edituser, deluser, getMe };

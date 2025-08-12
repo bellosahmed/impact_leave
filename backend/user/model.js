@@ -36,7 +36,7 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['user', 'admin'], // user has basic access while admin have more
+        enum: ['user', 'admin', 'superadmin'], // user has basic access while admin have more
         default: 'user'
     },
     isVerified: {

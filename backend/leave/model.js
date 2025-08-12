@@ -10,6 +10,9 @@ const leaveSchema = new mongoose.Schema({
         type: String,
         enum: ["pending", "approved", "declined"],
         default: "pending"
+    }, adminComment: {
+        type: String,
+        trim: true
     }
 }, { timestamps: true });
 

@@ -1,11 +1,16 @@
 const express = require('express');
-const { getuser, edituser, deluser } = require('./controller');
+const { getuser, edituser, deluser, getMe } = require('./controller'); // <-- 1. Import getMe
 const { auth } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.get('/profile/:id', getuser); // for profile
-router.patch('/update/:id', auth, edituser); // edit user don't know if its put or patch
-router.delete('/delete/:id', auth, deluser); // delete user
+// Add the /me route - This is essential for the frontend
+// It gets the currently logged-in user from their token
+router.get('/me', auth, getMe);
+
+// Your original routes are still here and work as before
+router.get('/profile/:id', getuser);
+router.patch('/update/:id', auth, edituser);
+router.delete('/delete/:id', auth, deluser);
 
 module.exports = router;

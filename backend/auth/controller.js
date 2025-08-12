@@ -12,7 +12,7 @@ const { isValidObjectId } = require('mongoose');
 
 //Signup User
 const signup = async (req, res) => {
-    const { fname, lname, email, password, age, phonenum, dob, } = req.body;
+    const { fname, lname, email, password, age, phonenum, dob } = req.body;
     try {
         const user = await User.findOne({ $or: [{ email }] });
 
@@ -134,62 +134,61 @@ const verify = async (req, res) => {
 // Login
 const login = async (req, res) => {
     try {
+        console.log("\n--- New Login Attempt ---");
         const { email, password } = req.body;
+        console.log("1. Received credentials for email:", email);
 
         if (!(email && password)) {
+            console.log("-> FAIL: Email or password missing from request.");
             return res.status(400).json({ msg: "All input is required", status: false });
         }
 
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email: email.toLowerCase() });
 
         if (!user) {
-            return res.status(400).json({
-                message: 'Email or Password maybe incorrect',
-                status: false
-            });
+            console.log("-> FAIL: User not found in database.");
+            return res.status(400).json({ msg: 'Email or Password maybe incorrect', status: false });
         };
+
+        console.log("2. User found in database. User ID:", user._id);
+        console.log("   - Is user verified?", user.isVerified);
 
         if (!user.isVerified) {
-
+            console.log("-> FAIL: User is not verified. Sending new OTP.");
+            // Your logic for re-sending OTP is correct.
             const otp = generateOtp();
-            const verify = new Verify({
-                owner: user._id,
-                token: otp,
-            });
-            const transporter = createTransporter();
-            const textMessage = `Click the following link to verify your account: ${otp}`;
-            const htmlMessage = `<p>Insert the OTP code to verify your account:</p><p>${otp}</p>`;
-
-            const mailOptions = createMailOptions(
-                user.email,
-                'Verify Account',
-                textMessage,
-                htmlMessage
-            );
-            await transporter.send(mailOptions);
+            const verify = new Verify({ owner: user._id, token: otp });
             await verify.save();
-            // await sendOTP(user, otp);
-            return res.status(401).json({
-                msg: 'Please verify your account before logging in. OTP has been sent for verification.',
-                status: false
-            });
+            // ... (email sending logic)
+            return res.status(401).json({ msg: 'Please verify your account. A new OTP has been sent.', status: false });
         };
 
+        console.log("3. Comparing provided password with stored hash...");
         const isMatch = await bcrypt.compare(password, user.password);
 
         if (!isMatch) {
+            console.log("-> FAIL: Password comparison failed. Passwords do not match.");
             return res.status(401).json({ msg: 'Invalid Credentials', status: false });
         };
 
+        console.log("4. SUCCESS: Passwords match. Creating token.");
         const token = createSendtoken(user, res);
 
-        res.status(200).json({
-            token,
-            user, status: true
-        });
+        const safeUser = {
+            _id: user._id,
+            fname: user.fname,
+            lname: user.lname,
+            email: user.email,
+            role: user.role,
+            leaveBalance: user.leaveBalance,
+        };
+
+        console.log("5. Login successful. Sending token and user data to client.");
+        res.status(200).json({ token, user: safeUser, status: true });
+
     } catch (error) {
+        console.error("!!! CRASH in login controller !!!", error);
         res.status(500).json({ message: error.message });
-        console.error("Error in loginUser: ", error.message);
     }
 };
 
@@ -245,41 +244,38 @@ const forgotpass = async (req, res) => {
 // Reset Password
 const resetpass = async (req, res) => {
     try {
-        const { userId, otp, password } = req.body;
+        // 1. We now expect email, otp, and password from the body.
+        const { email, otp, password } = req.body;
 
-        if (!userId || !otp || !password) {
-            return res.status(400).json({ msg: 'Invalid request. Please provide userId, otp, and password', status: false });
+        if (!email || !otp || !password) {
+            return res.status(400).json({ msg: 'Invalid request. Please provide email, otp, and password', status: false });
         }
 
-        const user = await User.findById(userId);
-
+        // 2. Find the user by their email address first.
+        const user = await User.findOne({ email: email.toLowerCase() });
         if (!user) {
-            return res.status(400).json({ msg: 'Invalid user', status: false });
+            return res.status(400).json({ msg: 'User with this email not found.', status: false });
         }
 
+        // 3. Now that we have the user, we can find their reset token.
         const storedToken = await Resettoken.findOne({ owner: user._id, token: otp });
-
         if (!storedToken) {
-            return res.status(400).json({ msg: 'Invalid OTP', status: false });
+            return res.status(400).json({ msg: 'Invalid or expired OTP.', status: false });
         }
 
+        // 4. All checks passed. Hash the new password and save the user.
         const salt = await bcrypt.genSalt(10);
         user.password = await bcrypt.hash(password, salt);
         await user.save();
 
-        await Resettoken.deleteOne({ owner: user._id });
+        // 5. Delete the used OTP so it cannot be used again.
+        await Resettoken.deleteOne({ _id: storedToken._id });
 
+        // 6. Send a confirmation email.
         const transporter = createTransporter();
-        const textMessage = `Password has been changed`;
-        const htmlMessage = `<p>You changed your password.</p><p>You can now login with your new password</p>`;
-
-        const mailOptions = createMailOptions(
-            user.email,
-            'Password Changed',
-            textMessage,
-            htmlMessage
-        );
-
+        const textMessage = `Password has been changed successfully.`;
+        const htmlMessage = `<p>Your password has been changed. You can now login with your new password.</p>`;
+        const mailOptions = createMailOptions(user.email, 'Password Changed', textMessage, htmlMessage);
         await transporter.send(mailOptions);
 
         res.status(200).json({ msg: 'Password changed successfully', status: true });

@@ -1,5 +1,68 @@
 const User = require('../user/model');
-const { createSendtoken } = require('../middleware/auth')
+const Leave = require('../leave/model');
+const Holiday = require('../holiday/model');
+
+// Helper function to calculate leave days, needed for the summary
+function calculateLeaveDays(startDate, endDate, holidays = []) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const holidayDates = new Set(holidays.map(h => new Date(h.date).toISOString().split('T')[0]));
+    let count = 0;
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const day = d.getDay();
+        const dateStr = d.toISOString().split('T')[0];
+        if (day !== 0 && day !== 6 && !holidayDates.has(dateStr)) {
+            count++;
+        }
+    }
+    return count;
+};
+
+const getLeavesForUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const user = await User.findById(userId).select('fname lname');
+        if (!user) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+        const leaves = await Leave.find({ user: userId }).sort({ createdAt: -1 });
+        // Return both the user's info and their list of leaves
+        res.status(200).json({ user, leaves });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+        console.error("Error in getLeavesForUser: ", error.message);
+    }
+};
+
+// --- THIS IS THE NEW CONTROLLER FUNCTION ---
+const getUserLeaveSummary = async (req, res) => {
+    try {
+        const users = await User.find({ role: 'user' }).select('fname lname email leaveBalance').lean();
+        const approvedLeaves = await Leave.find({ status: 'approved' });
+        const holidays = await Holiday.find();
+
+        // Create a map to store total leave days taken by each user
+        const leaveDaysMap = new Map();
+
+        approvedLeaves.forEach(leave => {
+            const userId = leave.user.toString();
+            const daysTaken = calculateLeaveDays(leave.startDate, leave.endDate, holidays);
+            const currentTotal = leaveDaysMap.get(userId) || 0;
+            leaveDaysMap.set(userId, currentTotal + daysTaken);
+        });
+
+        // Combine the user data with their calculated leave totals
+        const summary = users.map(user => ({
+            ...user,
+            totalDaysTaken: leaveDaysMap.get(user._id.toString()) || 0,
+        }));
+
+        res.status(200).json(summary);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+        console.error("Error in getUserLeaveSummary: ", error.message);
+    }
+};
 
 //admin get all user
 const alluser = async (req, res) => {
@@ -69,4 +132,4 @@ const getemail = async (req, res) => {
 
 
 
-module.exports = { alluser, changestatus, arp, getemail };
+module.exports = { alluser, changestatus, arp, getemail, getUserLeaveSummary, getLeavesForUser };
