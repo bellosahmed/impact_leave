@@ -38,9 +38,12 @@ async function requestLeave(req, res) {
 
         const leave = await Leave.create({ user: user._id, startDate, endDate, reason });
 
-        // Smart Notification Logic
+        // --- FINAL NOTIFICATION LOGIC ---
         let recipients = [];
-        if (user.role === 'admin') {
+        if (user.role === 'superadmin') {
+            // If a superadmin requests leave, do nothing. No one is notified.
+            recipients = [];
+        } else if (user.role === 'admin') {
             // If an admin requests leave, notify only the superadmin.
             const superAdmin = await User.findOne({ role: 'superadmin' });
             if (superAdmin) recipients.push(superAdmin);

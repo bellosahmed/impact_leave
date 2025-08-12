@@ -21,20 +21,24 @@ export default function NavBar() {
             <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
                 <div className="flex items-center gap-6">
                     <Link to="/" className="font-bold text-lg text-gray-800">Impact Leave</Link>
-                    <nav className="hidden md:flex items-center gap-2">
+
+                    {/* --- THIS IS THE FIX --- */}
+                    {/* The responsive classes 'hidden' and 'md:flex' have been removed. */}
+                    {/* The links are now always displayed in a flex container. */}
+                    <nav className="flex items-center gap-2">
                         {/* User Links */}
                         {navLink('/', 'Dashboard')}
                         {navLink('/apply', 'Apply')}
                         {navLink('/leaves', 'My Leaves')}
 
                         {/* Admin-only Links */}
-                        {user?.role === 'admin' && (
+                        {(user?.role === 'admin' || user?.role === 'superadmin') && (
                             <>
                                 <div className="w-px h-6 bg-gray-200 mx-2" />
                                 {navLink('/admin/dashboard', 'Admin Dashboard')}
                                 {navLink('/admin/leaves', 'Manage Leaves')}
                                 {navLink('/admin/holidays', 'Manage Holidays')}
-                                {navLink('/admin/user-report', 'User Report')} {/* <-- Add the new link */}
+                                {navLink('/admin/user-report', 'User Report')}
                             </>
                         )}
                     </nav>
