@@ -3,17 +3,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 import React, { useState } from 'react';
-import { useAuth } from '../context/useAuth'; // Import useAuth to get the current user's role
+import { useAuth } from '../context/useAuth';
+import StatusBadge from '../components/StatusBadge.test'; // <-- Import the reusable component
 
 // --- TYPE DEFINITION ---
-// The user object within a leave now includes their role.
 type Leave = {
     _id: string;
-    user: {
-        fname: string;
-        lname: string;
-        role: 'user' | 'admin' | 'superadmin';
-    };
+    user: { fname: string; lname: string; role: 'user' | 'admin' | 'superadmin'; };
     startDate: string;
     endDate: string;
     reason: string;
@@ -33,11 +29,10 @@ async function makeLeaveDecision({ id, action, comment }: { id: string; action: 
 
 // --- MAIN COMPONENT ---
 export default function ManageLeaves() {
-    const { user: currentUser } = useAuth(); // Get the currently logged-in user
+    const { user: currentUser } = useAuth();
     const queryClient = useQueryClient();
     const { data: leaves, isLoading, error } = useQuery({ queryKey: ['allLeaves'], queryFn: getAllLeaves });
 
-    // State for modal and text expansion
     const [modalState, setModalState] = useState<{ isOpen: boolean; leave: Leave | null; action: 'approve' | 'decline' | null }>({ isOpen: false, leave: null, action: null });
     const [comment, setComment] = useState('');
     const [expandedReasonId, setExpandedReasonId] = useState<string | null>(null);
@@ -91,14 +86,7 @@ export default function ManageLeaves() {
                     <tbody className="divide-y divide-gray-200">
                         {leaves?.map((leave) => {
                             const isExpanded = expandedReasonId === leave._id;
-
-                            // --- UI PERMISSION LOGIC ---
-                            // Determine if the action buttons should be shown for this specific row.
-                            const canTakeAction =
-                                // A superadmin can act on anyone's request.
-                                currentUser?.role === 'superadmin' ||
-                                // An admin can only act on a regular user's request.
-                                (currentUser?.role === 'admin' && leave.user.role === 'user');
+                            const canTakeAction = currentUser?.role === 'superadmin' || (currentUser?.role === 'admin' && leave.user.role === 'user');
 
                             return (
                                 <tr key={leave._id}>
@@ -118,7 +106,7 @@ export default function ManageLeaves() {
                                         )}
                                         {leave.adminComment && (
                                             <p className="text-xs text-gray-500 mt-1">
-                                                <span className="font-semibold">Note:</span> {leave.adminComment}
+                                                <span className="font-semibold">Your Note:</span> {leave.adminComment}
                                             </p>
                                         )}
                                     </Td>
@@ -169,13 +157,10 @@ export default function ManageLeaves() {
 }
 
 // --- HELPER COMPONENTS ---
+// The old StatusBadge function has been removed from here.
 function Th({ children }: { children: React.ReactNode }) {
     return <th className="text-left px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">{children}</th>;
 }
 function Td({ children, className = '', ...rest }: React.ComponentProps<'td'>) {
     return <td className={`px-6 py-4 whitespace-nowrap text-gray-700 ${className}`} {...rest}>{children}</td>;
-}
-function StatusBadge({ status }: { status: Leave['status'] }) {
-    const styles: Record<string, string> = { pending: 'bg-yellow-100 text-yellow-800', approved: 'bg-green-100 text-green-800', declined: 'bg-red-100 text-red-800' };
-    return <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full capitalize ${styles[status]}`}>{status}</span>;
 }

@@ -20,11 +20,13 @@ export default function NavBar() {
         <header className="border-b bg-white sticky top-0 z-10">
             <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
                 <div className="flex items-center gap-6">
-                    <Link to="/" className="font-bold text-lg text-gray-800">Impact Leave</Link>
 
-                    {/* --- THIS IS THE FIX --- */}
-                    {/* The responsive classes 'hidden' and 'md:flex' have been removed. */}
-                    {/* The links are now always displayed in a flex container. */}
+                    {/* --- THIS IS THE CHANGE --- */}
+                    {/* The "Impact Leave" text has been replaced with your logo image. */}
+                    <Link to="/">
+                        <img src="/logo.png" alt="Impact Catalysts Logo" className="h-8 w-auto" />
+                    </Link>
+
                     <nav className="flex items-center gap-2">
                         {/* User Links */}
                         {navLink('/', 'Dashboard')}

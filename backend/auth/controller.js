@@ -134,46 +134,36 @@ const verify = async (req, res) => {
 // Login
 const login = async (req, res) => {
     try {
-        console.log("\n--- New Login Attempt ---");
         const { email, password } = req.body;
-        console.log("1. Received credentials for email:", email);
 
         if (!(email && password)) {
-            console.log("-> FAIL: Email or password missing from request.");
             return res.status(400).json({ msg: "All input is required", status: false });
         }
 
         const user = await User.findOne({ email: email.toLowerCase() });
 
         if (!user) {
-            console.log("-> FAIL: User not found in database.");
             return res.status(400).json({ msg: 'Email or Password maybe incorrect', status: false });
         };
 
-        console.log("2. User found in database. User ID:", user._id);
-        console.log("   - Is user verified?", user.isVerified);
-
         if (!user.isVerified) {
-            console.log("-> FAIL: User is not verified. Sending new OTP.");
-            // Your logic for re-sending OTP is correct.
+            // Re-send verification OTP if user is not verified
             const otp = generateOtp();
             const verify = new Verify({ owner: user._id, token: otp });
             await verify.save();
-            // ... (email sending logic)
+            // ... (optional: add email sending logic here)
             return res.status(401).json({ msg: 'Please verify your account. A new OTP has been sent.', status: false });
         };
 
-        console.log("3. Comparing provided password with stored hash...");
         const isMatch = await bcrypt.compare(password, user.password);
 
         if (!isMatch) {
-            console.log("-> FAIL: Password comparison failed. Passwords do not match.");
             return res.status(401).json({ msg: 'Invalid Credentials', status: false });
         };
 
-        console.log("4. SUCCESS: Passwords match. Creating token.");
         const token = createSendtoken(user, res);
 
+        // Create a safe user object to send to the client (without the password)
         const safeUser = {
             _id: user._id,
             fname: user.fname,
@@ -183,11 +173,9 @@ const login = async (req, res) => {
             leaveBalance: user.leaveBalance,
         };
 
-        console.log("5. Login successful. Sending token and user data to client.");
         res.status(200).json({ token, user: safeUser, status: true });
-
     } catch (error) {
-        console.error("!!! CRASH in login controller !!!", error);
+        console.error("Error in loginUser: ", error.message);
         res.status(500).json({ message: error.message });
     }
 };

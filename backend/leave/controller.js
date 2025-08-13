@@ -191,4 +191,4 @@ async function getAdminDashboard(req, res) {
     }
 };
 
-module.exports = { requestLeave, approveLeave, declineLeave, getMyLeaves, getAllLeaves, cancelLeave, getAdminDashboard };
+module.exports = { requestLeave, approveLeave, declineLeave, getMyLeaves, getAllLeaves, cancelLeave, getAdminDashboard, _calculateLeaveDaysForTest: calculateLeaveDays };
