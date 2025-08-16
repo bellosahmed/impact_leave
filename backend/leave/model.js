@@ -8,12 +8,22 @@ const leaveSchema = new mongoose.Schema({
     reason: { type: String, required: true },
     status: {
         type: String,
+        enum: ["pending", "approved", "declined", "awaiting_admin_approval"],
+        default: "pending"
+    },
+    supervisorDecision: {
+        type: String,
         enum: ["pending", "approved", "declined"],
         default: "pending"
-    }, adminComment: {
+    },
+    supervisorComment: { type: String, trim: true },
+    adminComment: {
         type: String,
         trim: true
-    }
+    }, actionTakenByRole: {
+        type: String,
+        enum: ['admin', 'superadmin']
+    },
 }, { timestamps: true });
 
 module.exports = mongoose.model("Leave", leaveSchema);

@@ -36,12 +36,16 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['user', 'admin', 'superadmin'], // user has basic access while admin have more
+        enum: ['user', 'admin', 'superadmin', 'supervisor'], // user has basic access while admin have more
         default: 'user'
     },
     isVerified: {
         type: Boolean,
         default: false // when user is registered will show false untill he verifies his account
+    },
+    supervisor: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User' // This tells Mongoose it's a reference to another User document
     },
     leaveBalance: {
         type: Number,

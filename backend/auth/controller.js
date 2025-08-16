@@ -4,6 +4,7 @@ const { createSendtoken } = require('../middleware/auth');
 const { createTransporter, createMailOptions } = require('../utils/email');
 const { generateOtp } = require('../utils/otp');
 
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const bcrypt = require('bcryptjs');
@@ -183,82 +184,77 @@ const login = async (req, res) => {
 // Forgot Password
 const forgotpass = async (req, res) => {
     const { email } = req.body;
-
     try {
         if (!email) {
-            return res.status(400).json({ msg: 'Provide a valid email', status: false });
+            return res.status(400).json({ msg: 'Please provide a valid email.', status: false });
         }
-
-        const user = await User.findOne({ email });
-
+        const user = await User.findOne({ email: email.toLowerCase() });
         if (!user) {
-            return res.status(400).json({ msg: 'User not found', status: false });
+            return res.status(404).json({ msg: 'User with this email not found.', status: false });
         }
 
-        const token = await Resettoken.findOne({ owner: user._id });
+        // Invalidate any old tokens for this user
+        await Resettoken.deleteMany({ owner: user._id });
 
-        if (token) {
-            return res.json({ msg: 'Your forgot password email has been sent', status: true });
-        }
+        // Generate a new, secure password reset token
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
 
-        const otp = await generateOtp();
         const reset = new Resettoken({
             owner: user._id,
-            token: otp
+            token: hashedToken,
+            createdAt: Date.now()
         });
-
-        const transporter = createTransporter();
-        const textMessage = `This is the link to your forgot password ${otp}`;
-        const htmlMessage = `<p>Use the link to access your password</p> ${otp}`;
-
-        const mailOptions = createMailOptions(
-            user.email,
-            'Forgot Password',
-            textMessage,
-            htmlMessage
-        );
-
-        await transporter.send(mailOptions);
         await reset.save();
 
-        res.status(200).json({ msg: 'Check your email for the reset pin', status: true });
+        // Send the password reset email with the new link
+        const resetURL = `http://localhost:5173/reset-password?token=${resetToken}&id=${user._id}`;
+
+        const transporter = createTransporter();
+        const subject = 'Password Reset Request';
+        const textMessage = `You requested a password reset. Please use the following link to reset your password: ${resetURL}`;
+        const htmlMessage = `<p>You requested a password reset for your Impact Leave account.</p><p>Please click the link below to set a new password:</p><p><a href="${resetURL}">Reset Your Password</a></p><p>This link is valid for one hour.</p>`;
+
+        const mailOptions = createMailOptions(user.email, subject, textMessage, htmlMessage);
+        await transporter.send(mailOptions);
+
+        res.status(200).json({ msg: 'A password reset link has been sent to your email.', status: true });
 
     } catch (error) {
         res.status(500).json({ message: error.message });
-        console.log("Error in Forgot Password: ", error.message);
     }
 };
 
 // Reset Password
+// --- THIS IS THE UPDATED `resetpass` FUNCTION ---
 const resetpass = async (req, res) => {
     try {
-        // 1. We now expect email, otp, and password from the body.
-        const { email, otp, password } = req.body;
+        const { token, userId, password } = req.body;
 
-        if (!email || !otp || !password) {
-            return res.status(400).json({ msg: 'Invalid request. Please provide email, otp, and password', status: false });
-        }
+        // Hash the token from the URL to match the one in the database
+        const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-        // 2. Find the user by their email address first.
-        const user = await User.findOne({ email: email.toLowerCase() });
-        if (!user) {
-            return res.status(400).json({ msg: 'User with this email not found.', status: false });
-        }
+        // Find the token that belongs to the user and hasn't expired
+        const storedToken = await Resettoken.findOne({
+            owner: userId,
+            token: hashedToken,
+            createdAt: { $gt: new Date(Date.now() - 3600 * 1000) } // Check for expiration
+        });
 
-        // 3. Now that we have the user, we can find their reset token.
-        const storedToken = await Resettoken.findOne({ owner: user._id, token: otp });
         if (!storedToken) {
-            return res.status(400).json({ msg: 'Invalid or expired OTP.', status: false });
+            return res.status(400).json({ msg: 'Token is invalid or has expired.', status: false });
         }
 
-        // 4. All checks passed. Hash the new password and save the user.
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(400).json({ msg: 'User not found.', status: false });
+        }
+
         const salt = await bcrypt.genSalt(10);
         user.password = await bcrypt.hash(password, salt);
         await user.save();
 
-        // 5. Delete the used OTP so it cannot be used again.
         await Resettoken.deleteOne({ _id: storedToken._id });
-
         // 6. Send a confirmation email.
         const transporter = createTransporter();
         const textMessage = `Password has been changed successfully.`;

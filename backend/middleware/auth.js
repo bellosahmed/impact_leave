@@ -60,16 +60,23 @@ const auth = async (req, res, next) => {
 // Middleware to restrict access based on a role hierarchy.
 const restrict = (requiredRole) => {
     return (req, res, next) => {
-        // Rule 1: A superadmin can do anything.
-        if (req.user.role === 'superadmin') {
-            return next();
+        // Define the power level of each role
+        const roles = {
+            user: 1,
+            supervisor: 2,
+            admin: 3,
+            superadmin: 4
+        };
+
+        const userRoleLevel = roles[req.user.role];
+        const requiredRoleLevel = roles[requiredRole];
+
+        // If the user's role level is greater than or equal to the required level, they are authorized.
+        if (userRoleLevel >= requiredRoleLevel) {
+            return next(); // Allow access
         }
-        // Rule 2: An admin can do anything that requires the 'admin' role.
-        if (req.user.role === 'admin' && requiredRole === 'admin') {
-            return next();
-        }
-        // Rule 3: A regular user cannot access restricted routes.
-        // If the code reaches here, the user is not a superadmin and does not have the required role.
+
+        // Otherwise, they do not have permission.
         return res.status(403).json({ message: 'You do not have permission to perform this action.', status: false });
     };
 };

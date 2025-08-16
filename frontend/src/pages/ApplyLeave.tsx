@@ -1,6 +1,6 @@
 // frontend/src/pages/ApplyLeave.tsx
 
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -8,37 +8,36 @@ import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import { AxiosError } from 'axios';
 import { useState, useEffect } from 'react';
+import { DayPicker, type DateRange } from 'react-day-picker';
+import 'react-day-picker/dist/style.css';
+import { format } from 'date-fns';
 
-// Define the shape of a Holiday object for type safety
-type Holiday = {
-    _id: string;
-    name: string;
-    date: string;
-};
+// NOTE: The useOnClickOutside custom hook and useRef have been completely removed.
 
-// Zod schema for form validation
+// --- TYPE DEFINITIONS & SCHEMA ---
+type Holiday = { date: string };
 const schema = z.object({
-    startDate: z.string().min(1, "Start date is required"),
-    endDate: z.string().min(1, "End date is required"),
     reason: z.string().min(10, "Reason must be at least 10 characters"),
-}).refine(data => new Date(data.endDate) >= new Date(data.startDate), {
-    message: "End date cannot be before the start date",
-    path: ["endDate"],
 });
 type FormData = z.infer<typeof schema>;
 
-// --- UPDATED HELPER: Now accounts for public holidays ---
-function calculateLeaveDays(startDateStr: string, endDateStr: string, holidays: Holiday[] = []): number {
-    if (!startDateStr || !endDateStr) return 0;
-    const start = new Date(startDateStr);
-    const end = new Date(endDateStr);
-    if (start > end) return 0;
+// --- API FUNCTIONS ---
+async function requestLeave(payload: { startDate: Date; endDate: Date; reason: string }) {
+    const { data } = await api.post('/leave/request', payload);
+    return data;
+}
+async function getHolidays() {
+    const { data } = await api.get<Holiday[]>('/holidays');
+    return data.map(h => new Date(h.date));
+}
 
-    const holidayDates = new Set(holidays.map(h => h.date.split('T')[0]));
+// --- HELPER FUNCTION for day calculation ---
+function calculateLeaveDays(range: DateRange | undefined, holidays: Date[] = []): number {
+    if (!range?.from || !range?.to) return 0;
+    const holidayDates = new Set(holidays.map(h => format(h, 'yyyy-MM-dd')));
     let count = 0;
-    const curDate = new Date(start.getTime());
-
-    while (curDate <= end) {
+    const curDate = new Date(range.from);
+    while (curDate <= range.to) {
         const dayOfWeek = curDate.getDay();
         const dateStr = curDate.toISOString().split('T')[0];
         if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidayDates.has(dateStr)) {
@@ -49,35 +48,19 @@ function calculateLeaveDays(startDateStr: string, endDateStr: string, holidays: 
     return count;
 }
 
-// API functions
-async function requestLeave(payload: FormData) {
-    const { data } = await api.post('/leave/request', payload);
-    return data;
-}
-async function getHolidays() {
-    const { data } = await api.get<Holiday[]>('/holidays');
-    return data;
-}
-
+// --- MAIN COMPONENT ---
 export default function ApplyLeave() {
-    const { control, register, handleSubmit, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) });
+    const { register, handleSubmit, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) });
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [apiError, setApiError] = useState<string | null>(null);
+
+    const [range, setRange] = useState<DateRange | undefined>();
+    const [isStartOpen, setIsStartOpen] = useState(false);
+    const [isEndOpen, setIsEndOpen] = useState(false);
     const [dayCount, setDayCount] = useState(0);
 
-    // Fetch all public holidays to use in our calculation
     const { data: holidays } = useQuery({ queryKey: ['holidays'], queryFn: getHolidays });
-
-    // Watch the date fields for real-time changes
-    const startDate = useWatch({ control, name: 'startDate' });
-    const endDate = useWatch({ control, name: 'endDate' });
-
-    // Recalculate the day count whenever the dates or the list of holidays change
-    useEffect(() => {
-        const days = calculateLeaveDays(startDate, endDate, holidays);
-        setDayCount(days);
-    }, [startDate, endDate, holidays]);
 
     const { mutate, isPending } = useMutation({
         mutationFn: requestLeave,
@@ -90,39 +73,85 @@ export default function ApplyLeave() {
         }
     });
 
-    const today = new Date().toISOString().split('T')[0];
+    const onSubmit = (data: FormData) => {
+        if (!range?.from || !range?.to) {
+            setApiError("Please select both a start and end date.");
+            return;
+        }
+        setApiError(null);
+        mutate({ startDate: range.from, endDate: range.to, reason: data.reason });
+    };
+
+    useEffect(() => {
+        const days = calculateLeaveDays(range, holidays);
+        setDayCount(days);
+    }, [range, holidays]);
+
+    const disabledDays = [{ before: new Date() }, { dayOfWeek: [0, 6] }, ...(holidays || [])];
 
     return (
         <div className="space-y-6">
             <h1 className="text-3xl font-bold text-gray-800">Apply for Leave</h1>
-            <form onSubmit={handleSubmit(data => mutate(data))} className="bg-white p-8 rounded-lg border shadow-sm space-y-6 max-w-2xl">
+            <form onSubmit={handleSubmit(onSubmit)} className="bg-white p-8 rounded-lg border shadow-sm space-y-6 max-w-2xl">
                 <div className="grid sm:grid-cols-2 gap-6">
+                    {/* --- Start Date Input with SIMPLIFIED Popover --- */}
                     <div>
                         <label className="block text-sm font-medium mb-1 text-gray-700">Start Date</label>
-                        <input type="date" min={today} className="w-full border-gray-300 rounded-md text-gray-900" {...register('startDate')} />
-                        {errors.startDate && <p className="text-xs text-red-600 mt-1">{errors.startDate.message}</p>}
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={() => { setIsStartOpen(prev => !prev); setIsEndOpen(false); }}
+                                className="w-full text-left border-gray-300 rounded-md shadow-sm text-gray-900 p-2 border"
+                            >
+                                {range?.from ? format(range.from, 'PPP') : <span className="text-gray-500">Select date</span>}
+                            </button>
+                            {isStartOpen && (
+                                <div className="absolute z-10 bg-white border rounded-md mt-1 shadow-lg">
+                                    <DayPicker
+                                        mode="single"
+                                        selected={range?.from}
+                                        onSelect={(date) => { setRange({ from: date, to: range?.to }); setIsStartOpen(false); }}
+                                        disabled={disabledDays}
+                                        initialFocus
+                                    />
+                                </div>
+                            )}
+                        </div>
                     </div>
+
+                    {/* --- End Date Input with SIMPLIFIED Popover --- */}
                     <div>
                         <label className="block text-sm font-medium mb-1 text-gray-700">End Date</label>
-                        <input type="date" min={startDate || today} className="w-full border-gray-300 rounded-md text-gray-900" {...register('endDate')} />
-                        {errors.endDate && <p className="text-xs text-red-600 mt-1">{errors.endDate.message}</p>}
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={() => { setIsEndOpen(prev => !prev); setIsStartOpen(false); }}
+                                className="w-full text-left border-gray-300 rounded-md shadow-sm text-gray-900 p-2 border"
+                            >
+                                {range?.to ? format(range.to, 'PPP') : <span className="text-gray-500">Select date</span>}
+                            </button>
+                            {isEndOpen && (
+                                <div className="absolute z-10 bg-white border rounded-md mt-1 shadow-lg">
+                                    <DayPicker
+                                        mode="single"
+                                        selected={range?.to}
+                                        onSelect={(date) => { setRange({ from: range?.from, to: date }); setIsEndOpen(false); }}
+                                        disabled={[{ before: range?.from || new Date() }, ...disabledDays.slice(1)]}
+                                        initialFocus
+                                    />
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                {dayCount > 0 && (
-                    <div className="p-3 bg-blue-50 text-blue-800 rounded-md text-sm">
-                        Total workable leave days (excluding weekends & holidays): <strong>{dayCount}</strong>
-                    </div>
-                )}
-
+                {dayCount > 0 && (<div className="p-3 bg-blue-50 text-blue-800 rounded-md text-sm">Total workable leave days (excluding weekends & holidays): <strong>{dayCount}</strong></div>)}
                 <div>
                     <label className="block text-sm font-medium mb-1 text-gray-700">Reason for Leave</label>
                     <textarea className="w-full border-gray-300 rounded-md text-gray-900" rows={4} {...register('reason')}></textarea>
                     {errors.reason && <p className="text-xs text-red-600 mt-1">{errors.reason.message}</p>}
                 </div>
-
                 {apiError && <p className="text-sm text-red-600">{apiError}</p>}
-
                 <button disabled={isPending} className="w-full sm:w-auto bg-indigo-600 text-white rounded-md px-6 py-2 font-semibold">
                     {isPending ? 'Submitting...' : 'Submit Request'}
                 </button>

@@ -1,14 +1,18 @@
+// backend/app.js
+
 const express = require('express');
 const dotenv = require('dotenv');
+dotenv.config();
+
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
-
-// Load environment and database
-dotenv.config();
 const db = require('./config/db');
 
+// Security Imports (express-mongo-sanitize has been removed)
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
-// Load all your route files
+// Route Imports
 const authRoute = require('./auth/route');
 const userRoute = require('./user/route');
 const leaveRoute = require('./leave/route');
@@ -17,37 +21,65 @@ const holidayRoute = require('./holiday/route');
 const resetLeaveBalance = require('./utils/resetleave');
 
 db();
-
-// Initialize app
 const app = express();
 
-// 1. Enable CORS for your React app
-// This allows your frontend (on localhost:5173) to make requests
-app.use(cors({
-    origin: 'http://localhost:5173', // The specific origin of your React app
-    credentials: true
-}));
+// ===============================================
+// --- 1. GLOBAL SECURITY MIDDLEWARE ---
+// ===============================================
 
-// 2. Standard Parsers
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(helmet({ contentSecurityPolicy: { /* your CSP config */ } }));
+app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 200,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: 'Too many requests from this IP, please try again after 15 minutes.'
+});
+app.use('/api', apiLimiter);
+
+// ===============================================
+// --- 2. DATA PARSING & SANITIZATION MIDDLEWARE ---
+// ===============================================
+
+// Body parsers
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(cookieParser());
 
-// Cron job for resetting leave
+// --- The express-mongo-sanitize middleware has been completely removed ---
+// Your application is still protected by Mongoose's schema validation and express-validator.
+
+// ===============================================
+// --- 3. APPLICATION LOGIC & ROUTES ---
+// ===============================================
+
 resetLeaveBalance();
 
-// --- API Routes ---
 app.use('/api/auth', authRoute);
 app.use('/api/user', userRoute);
 app.use('/api/leave', leaveRoute);
 app.use('/api/admin', adminRoute);
 app.use('/api/holidays', holidayRoute);
 
-// Optional: Add a simple health check route to easily test if the server is running
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', message: 'Backend is running' });
+app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+
+// ===============================================
+// --- 4. ERROR HANDLING ---
+// ===============================================
+
+app.use((err, req, res, next) => {
+    console.error('--- UNHANDLED ERROR ---', err);
+    res.status(500).json({
+        status: 'error',
+        message: 'Something went very wrong on the server.'
+    });
 });
 
-// Start server
+// ===============================================
+// --- 5. START SERVER ---
+// ===============================================
+
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`Server running on http://localhost:${port}`));

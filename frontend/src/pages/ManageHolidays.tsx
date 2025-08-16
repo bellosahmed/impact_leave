@@ -5,17 +5,25 @@ import api from '../lib/api';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AxiosError } from 'axios'; // <-- Import the AxiosError type
+import { AxiosError } from 'axios';
+import { useState, useMemo } from 'react';
+import SkeletonLoader from '../components/SkeletonLoader'; // <-- Import the new loader
 
-type Holiday = { _id: string; name: string; date: string };
+// --- TYPE DEFINITION ---
+type Holiday = {
+    _id: string;
+    name: string;
+    date: string;
+};
 
+// --- ZOD SCHEMA for the form ---
 const schema = z.object({
     name: z.string().min(3, "Holiday name must be at least 3 characters"),
     date: z.string().min(1, "Date is required"),
 });
 type FormData = z.infer<typeof schema>;
 
-// API functions
+// --- API FUNCTIONS ---
 async function getAllHolidays() {
     const { data } = await api.get<Holiday[]>('/holidays');
     return data;
@@ -27,23 +35,33 @@ async function deleteHoliday(id: string) {
     return api.delete(`/holidays/${id}`);
 }
 
+// --- MAIN COMPONENT ---
 export default function ManageHolidays() {
     const queryClient = useQueryClient();
     const { data: holidays, isLoading } = useQuery({ queryKey: ['holidays'], queryFn: getAllHolidays });
     const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) });
+
+    const [searchTerm, setSearchTerm] = useState('');
 
     const addMutation = useMutation({
         mutationFn: addHoliday,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['holidays'] });
             reset();
-        },
+        }
     });
 
     const deleteMutation = useMutation({
         mutationFn: deleteHoliday,
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['holidays'] })
     });
+
+    const filteredHolidays = useMemo(() => {
+        if (!holidays) return [];
+        return holidays.filter(holiday =>
+            holiday.name.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [holidays, searchTerm]);
 
     const today = new Date().toISOString().split('T')[0];
 
@@ -64,15 +82,11 @@ export default function ManageHolidays() {
                             <input type="date" min={today} className="w-full border-gray-300 rounded-md text-gray-900" {...register('date')} />
                             {errors.date && <p className="text-xs text-red-600 mt-1">{errors.date.message}</p>}
                         </div>
-
-                        {/* --- THIS IS THE FIX --- */}
-                        {/* We check if the error is an AxiosError before trying to access its response data. */}
                         {addMutation.error && (
                             <p className="text-sm text-red-600">
                                 Error: {addMutation.error instanceof AxiosError ? addMutation.error.response?.data?.message : 'An unknown error occurred'}
                             </p>
                         )}
-
                         <button disabled={addMutation.isPending} className="w-full bg-indigo-600 text-white rounded-md py-2 font-semibold">
                             {addMutation.isPending ? 'Adding...' : 'Add Holiday'}
                         </button>
@@ -80,10 +94,28 @@ export default function ManageHolidays() {
                 </div>
                 <div className="md:col-span-2">
                     <h2 className="text-xl font-semibold text-gray-700 mb-4">Existing Holidays</h2>
+
+                    <div className="mb-4">
+                        <label htmlFor="search-holiday" className="sr-only">Search Holidays</label>
+                        <input
+                            id="search-holiday"
+                            type="text"
+                            placeholder="Search by holiday name..."
+                            className="w-full border-gray-300 rounded-md text-gray-900"
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+
                     <div className="bg-white border rounded-lg">
-                        {isLoading ? <p className="p-4 text-gray-500">Loading holidays...</p> : (
+                        {isLoading ? (
+                            // Use a table-like structure for the skeleton loader to match the list layout
+                            <table className="min-w-full">
+                                <SkeletonLoader rows={5} cols={2} />
+                            </table>
+                        ) : (
                             <ul className="divide-y divide-gray-200">
-                                {holidays?.map(h => (
+                                {filteredHolidays.map(h => (
                                     <li key={h._id} className="p-4 flex justify-between items-center">
                                         <div>
                                             <p className="font-medium text-gray-900">{h.name}</p>
@@ -92,7 +124,11 @@ export default function ManageHolidays() {
                                         <button onClick={() => deleteMutation.mutate(h._id)} disabled={deleteMutation.isPending} className="text-red-600 text-sm font-medium hover:text-red-800 transition">Delete</button>
                                     </li>
                                 ))}
-                                {holidays?.length === 0 && <p className="p-4 text-gray-500">No holidays have been added yet.</p>}
+                                {filteredHolidays.length === 0 && (
+                                    <p className="p-4 text-gray-500">
+                                        {holidays && holidays.length > 0 ? 'No holidays match your search.' : 'No holidays have been added yet.'}
+                                    </p>
+                                )}
                             </ul>
                         )}
                     </div>

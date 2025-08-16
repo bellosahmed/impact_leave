@@ -81,25 +81,5 @@ const edituser = async (req, res) => {
     }
 };
 
-// Delete 
-const deluser = async (req, res) => {
-    try {
 
-        const user = await User.findById(req.params.id); // find by user by id
-
-        if (!user) return res.status(404).json({ message: 'User not found', status: false }); // no user
-
-        if (user._id.toString() !== req.user._id.toString()) {
-            return res.status(401).json({ message: 'You are not authorized delete this user', status: false }); // only user with the same token can delete
-        }
-        await User.findByIdAndDelete(req.params.id); // find by user id and delete 
-
-        res.status(200).json({ message: 'You deleted your account', status: true }) // will delete account
-    } catch (error) {
-        // if there is error
-        res.status(500).json({ message: error.message })
-        console.log('Error in delete user', error.message);
-    }
-};
-
-module.exports = { getuser, edituser, deluser, getMe };
+module.exports = { getuser, edituser, getMe };

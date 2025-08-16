@@ -21,21 +21,11 @@ const verifySchema = new mongoose.Schema({
     { timestamps: true }); // timestamps create when the file is created
 
 
-// Reset password Schema
 const resetSchema = new mongoose.Schema({
-    owner: { // ref to the user 
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-    },
-    token: {
-        type: String,
-    },
-    createdAt: { // when pin is create and expires after 1 hour
-        type: Date,
-        expires: 3600,
-        default: Date.now()
-    }
-}, { timestamps: true }); // timestamps create when the file is created
+    owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    token: { type: String, required: true }, // Store the hashed token
+    createdAt: { type: Date, expires: 3600, default: Date.now() } // Expires in 1 hour
+});
 
 
 // Export both models

@@ -1,5 +1,5 @@
 const express = require('express');
-const { getuser, edituser, deluser, getMe } = require('./controller'); // <-- 1. Import getMe
+const { getuser, edituser, getMe } = require('./controller'); // <-- 1. Import getMe
 const { auth } = require('../middleware/auth');
 
 const router = express.Router();
@@ -11,6 +11,6 @@ router.get('/me', auth, getMe);
 // Your original routes are still here and work as before
 router.get('/profile/:id', getuser);
 router.patch('/update/:id', auth, edituser);
-router.delete('/delete/:id', auth, deluser);
+// router.delete('/delete/:id', auth, deluser);
 
 module.exports = router;

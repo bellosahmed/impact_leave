@@ -1,23 +1,20 @@
-// To install or import npm packages or files
+// backend/leave/route.js
 const express = require('express');
-const { requestLeave, approveLeave, declineLeave, getMyLeaves, getAllLeaves, cancelLeave, getAdminDashboard } = require('./controller');
+const {
+    requestLeave, approveLeave, declineLeave, getMyLeaves, getAllLeaves,
+    cancelLeave, getAdminDashboard, makeSupervisorDecision
+} = require('./controller');
 const { auth, restrict } = require('../middleware/auth');
 
 const router = express.Router();
 
-// router.use(auth); // 🛡 All routes below require login
-
-// Leave Routes for Users
-router.post('/request', auth, requestLeave);      // For user to request leave
+router.post('/request', auth, requestLeave);
 router.get('/my', auth, getMyLeaves);
-router.delete('/cancel/:id', auth, cancelLeave); //  user cancels and delete own pending leave
-
-// For user to view their own leaves
-
-// Leave Routes for Admin Only
-router.get('/all', auth, getAllLeaves);         // Admin views all leave requests
-router.put('/approve/:id', auth, approveLeave); // Admin approves leave
-router.put('/decline/:id', auth, declineLeave); // Admin declines leave
-router.get('/dashboard', auth, getAdminDashboard); //  Admin dashboard
+router.delete('/cancel/:id', auth, cancelLeave);
+router.put('/supervisor/decision/:id', auth, restrict('supervisor'), makeSupervisorDecision);
+router.get('/all', auth, restrict('supervisor'), getAllLeaves);
+router.get('/dashboard', auth, restrict('supervisor'), getAdminDashboard);
+router.put('/approve/:id', auth, restrict('admin'), approveLeave);
+router.put('/decline/:id', auth, restrict('admin'), declineLeave);
 
 module.exports = router;

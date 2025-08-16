@@ -5,15 +5,17 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '../context/useAuth';
 import { Link, useNavigate } from 'react-router-dom';
-import { useState } from 'react'; // <-- Step 1: Import useState
+import { useState } from 'react';
 import { AxiosError } from 'axios';
 
+// Zod schema with strong password validation
+const strongPassword = new RegExp('(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9])(?=.{8,})');
 const schema = z.object({
     fname: z.string().min(1, "First name is required"),
     lname: z.string().min(1, "Last name is required"),
     email: z.string().email(),
     phonenum: z.string().min(1, "Phone number is required"),
-    password: z.string().min(6, "Password must be at least 6 characters"),
+    password: z.string().regex(strongPassword, "Password needs 8+ characters, with uppercase, lowercase, number, and special character."),
 });
 type FormData = z.infer<typeof schema>;
 
@@ -23,8 +25,6 @@ export default function Signup() {
     const nav = useNavigate();
     const [apiError, setApiError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-
-    // --- THIS IS THE CHANGE (Part 1) ---
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
     const onSubmit = async (data: FormData) => {
@@ -50,59 +50,23 @@ export default function Signup() {
                 <h1 className="text-3xl font-bold text-center mb-6 text-gray-800">Create an Account</h1>
                 <form onSubmit={handleSubmit(onSubmit)} className="bg-white p-8 rounded-lg shadow-md space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block mb-1 text-sm font-medium text-gray-700">First Name</label>
-                            <input className="w-full border-gray-300 rounded-md shadow-sm text-gray-900" {...register('fname')} />
-                            {errors.fname && <p className="text-xs text-red-600 mt-1">{errors.fname.message}</p>}
-                        </div>
-                        <div>
-                            <label className="block mb-1 text-sm font-medium text-gray-700">Last Name</label>
-                            <input className="w-full border-gray-300 rounded-md shadow-sm text-gray-900" {...register('lname')} />
-                            {errors.lname && <p className="text-xs text-red-600 mt-1">{errors.lname.message}</p>}
-                        </div>
+                        <div><label className="block text-sm font-medium text-gray-700">First Name</label><input className="w-full border-gray-300 rounded-md shadow-sm text-gray-900" {...register('fname')} />{errors.fname && <p className="text-xs text-red-600 mt-1">{errors.fname.message}</p>}</div>
+                        <div><label className="block text-sm font-medium text-gray-700">Last Name</label><input className="w-full border-gray-300 rounded-md shadow-sm text-gray-900" {...register('lname')} />{errors.lname && <p className="text-xs text-red-600 mt-1">{errors.lname.message}</p>}</div>
                     </div>
-                    <div>
-                        <label className="block mb-1 text-sm font-medium text-gray-700">Email</label>
-                        <input className="w-full border-gray-300 rounded-md shadow-sm text-gray-900" type="email" {...register('email')} />
-                        {errors.email && <p className="text-xs text-red-600 mt-1">{errors.email.message}</p>}
-                    </div>
-                    <div>
-                        <label className="block mb-1 text-sm font-medium text-gray-700">Phone Number</label>
-                        <input className="w-full border-gray-300 rounded-md shadow-sm text-gray-900" type="tel" {...register('phonenum')} />
-                        {errors.phonenum && <p className="text-xs text-red-600 mt-1">{errors.phonenum.message}</p>}
-                    </div>
-                    <div>
-                        <label className="block mb-1 text-sm font-medium text-gray-700">Password</label>
-                        {/* --- THIS IS THE CHANGE (Part 2) --- */}
-                        <div className="relative">
-                            <input
-                                className="w-full border-gray-300 rounded-md shadow-sm text-gray-900 pr-10"
-                                type={isPasswordVisible ? 'text' : 'password'}
-                                {...register('password')}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setIsPasswordVisible(prev => !prev)}
-                                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
-                                aria-label="Toggle password visibility"
-                            >
-                                {isPasswordVisible ? <EyeSlashedIcon /> : <EyeIcon />}
-                            </button>
-                        </div>
-                        {errors.password && <p className="text-xs text-red-600 mt-1">{errors.password.message}</p>}
-                    </div>
+                    <div><label className="block text-sm font-medium text-gray-700">Email</label><input className="w-full border-gray-300 rounded-md shadow-sm text-gray-900" type="email" {...register('email')} />{errors.email && <p className="text-xs text-red-600 mt-1">{errors.email.message}</p>}</div>
+                    <div><label className="block text-sm font-medium text-gray-700">Phone Number</label><input className="w-full border-gray-300 rounded-md shadow-sm text-gray-900" type="tel" {...register('phonenum')} />{errors.phonenum && <p className="text-xs text-red-600 mt-1">{errors.phonenum.message}</p>}</div>
+                    <div><label className="block text-sm font-medium text-gray-700">Password</label><div className="relative"><input className="w-full border-gray-300 rounded-md shadow-sm text-gray-900 pr-10" type={isPasswordVisible ? 'text' : 'password'} {...register('password')} /><button type="button" onClick={() => setIsPasswordVisible(prev => !prev)} className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600" aria-label="Toggle password visibility">{isPasswordVisible ? <EyeSlashedIcon /> : <EyeIcon />}</button></div>{errors.password && <p className="text-xs text-red-600 mt-1">{errors.password.message}</p>}</div>
                     {apiError && <p className="text-sm text-red-600 text-center">{apiError}</p>}
                     <button disabled={loading} className="w-full bg-indigo-600 text-white rounded-md py-2 font-semibold hover:bg-indigo-700 disabled:opacity-60 transition">
                         {loading ? 'Creating Account...' : 'Create Account'}
                     </button>
                 </form>
-                <p className="text-center text-sm text-gray-600 mt-6">
-                    Already have an account? <Link to="/login" className="font-medium text-indigo-600 hover:underline">Sign in</Link>
-                </p>
+                <p className="text-center text-sm text-gray-600 mt-6">Already have an account? <Link to="/login" className="font-medium text-indigo-600 hover:underline">Sign in</Link></p>
             </div>
         </div>
     );
 }
+
 
 // --- THIS IS THE CHANGE (Part 3) ---
 // Helper components for the eye icons

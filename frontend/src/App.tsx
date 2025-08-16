@@ -16,12 +16,14 @@ import Dashboard from './pages/Dashboard';
 import ApplyLeave from './pages/ApplyLeave';
 import MyLeaves from './pages/MyLeaves';
 
-// Admin Pages
+// Admin, Super Admin & Supervisor Pages
 import AdminDashboard from './pages/AdminDashboard';
 import ManageLeaves from './pages/ManageLeaves';
 import ManageHolidays from './pages/ManageHolidays';
 import UserLeaveReport from './pages/UserLeaveReport';
-import AdminUserLeaves from './pages/AdminUserLeaves'; // <-- Import the new detail page
+import AdminUserLeaves from './pages/AdminUserLeaves';
+// UsersHub is no longer needed
+import UserManagementTable from './pages/UserManagementTable';
 
 export default function App() {
   return (
@@ -35,17 +37,26 @@ export default function App() {
 
       {/* Protected Routes */}
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+
         {/* User Routes */}
         <Route path="/" element={<Dashboard />} />
         <Route path="/apply" element={<ApplyLeave />} />
         <Route path="/leaves" element={<MyLeaves />} />
 
-        {/* Admin Routes */}
-        <Route path="/admin/dashboard" element={<ProtectedRoute roles={['admin']}><AdminDashboard /></ProtectedRoute>} />
-        <Route path="/admin/leaves" element={<ProtectedRoute roles={['admin']}><ManageLeaves /></ProtectedRoute>} />
+        {/* Manager-level Routes */}
+        <Route path="/admin/dashboard" element={<ProtectedRoute roles={['supervisor', 'admin']}><AdminDashboard /></ProtectedRoute>} />
+        <Route path="/admin/leaves" element={<ProtectedRoute roles={['supervisor', 'admin']}><ManageLeaves /></ProtectedRoute>} />
+
+        {/* Admin & Superadmin-only Routes */}
         <Route path="/admin/holidays" element={<ProtectedRoute roles={['admin']}><ManageHolidays /></ProtectedRoute>} />
+
+        {/* --- THIS IS THE CHANGE --- */}
+        {/* The old "/admin/users" route has been removed. */}
+        {/* This is now the single, definitive route for user management. */}
+        <Route path="/admin/users/table" element={<ProtectedRoute roles={['admin']}><UserManagementTable /></ProtectedRoute>} />
+
         <Route path="/admin/user-report" element={<ProtectedRoute roles={['admin']}><UserLeaveReport /></ProtectedRoute>} />
-        <Route path="/admin/user-leaves/:userId" element={<ProtectedRoute roles={['admin']}><AdminUserLeaves /></ProtectedRoute>} /> {/* <-- Add the new dynamic route */}
+        <Route path="/admin/user-leaves/:userId" element={<ProtectedRoute roles={['admin']}><AdminUserLeaves /></ProtectedRoute>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

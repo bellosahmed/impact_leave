@@ -1,31 +1,61 @@
 // frontend/src/context/AuthContext.tsx
 
-import { useEffect, useState, useCallback } from 'react'; // <-- Import useCallback
+import { useEffect, useState, useCallback } from 'react';
 import { Ctx } from './useAuth';
 import api from '../lib/api';
 
-// --- TYPE DEFINITIONS (Unchanged) ---
-export type Role = 'user' | 'admin' | 'superadmin';
-export type User = { _id: string; fname: string; lname: string; email: string; role: Role; leaveBalance: number; };
-export type SignupPayload = { fname: string; lname: string; email: string; phonenum: string; password: string; };
-export type SignupResponse = { newUser: User; token: string; status: boolean; };
-export type AuthCtx = { user: User | null; loading: boolean; login: (email: string, password: string) => Promise<void>; signup: (payload: SignupPayload) => Promise<SignupResponse>; logout: () => void; };
+// --- TYPE DEFINITIONS ---
+
+// The definitive list of all possible roles in the application.
+export type Role = 'user' | 'supervisor' | 'admin' | 'superadmin';
+
+// The definitive shape of a User object, including all optional fields.
+export type User = {
+    _id: string;
+    fname: string;
+    lname: string;
+    email: string;
+    role: Role;
+    leaveBalance: number;
+    phonenum?: number;
+    supervisor?: string; // This will be the ID of the supervisor user
+};
+
+// Types for the signup process.
+export type SignupPayload = {
+    fname: string;
+    lname: string;
+    email: string;
+    phonenum: string;
+    password: string;
+};
+export type SignupResponse = {
+    newUser: User;
+    token: string;
+    status: boolean;
+};
+
+// The definitive type for the context's value.
+export type AuthCtx = {
+    user: User | null;
+    loading: boolean;
+    login: (email: string, password: string) => Promise<void>;
+    signup: (payload: SignupPayload) => Promise<SignupResponse>;
+    logout: () => void;
+};
 
 // --- MAIN AUTH PROVIDER COMPONENT ---
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
-    // --- THIS IS THE FIX (Part 1) ---
-    // We wrap the `updateUser` function in `useCallback` so it doesn't get recreated on every render.
-    // The `setUser` function from useState is stable, so the dependency array is empty.
+    // Helper to set user state, wrapped in useCallback for stability.
     const updateUser = useCallback((newUser: User | null) => {
-        console.log("AuthContext: Setting user state to:", newUser);
         setUser(newUser);
     }, []);
 
-    // --- THIS IS THE FIX (Part 2) ---
-    // Now, we wrap `fetchMe` in `useCallback`. It will only be recreated if `updateUser` changes (which it won't).
+    // Fetches the current user's profile from the backend.
+    // Wrapped in useCallback to prevent re-creation on every render.
     const fetchMe = useCallback(() => {
         return api.get<User>('/user/me')
             .then(r => updateUser(r.data))
@@ -36,9 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .finally(() => setLoading(false));
     }, [updateUser]);
 
-    // --- THIS IS THE FIX (Part 3) ---
-    // The `useEffect` hook now correctly includes `fetchMe` in its dependency array.
-    // Since `fetchMe` is memoized by `useCallback`, this hook will only run ONCE on component mount.
+    // This effect runs once on initial application load to check for a logged-in user.
     useEffect(() => {
         if (localStorage.getItem('accessToken')) {
             fetchMe();
@@ -47,7 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     }, [fetchMe]);
 
-    // The login function is also updated to use the memoized `updateUser` function.
+    // Handles the user login process.
     const login = async (email: string, password: string) => {
         const { data } = await api.post('/auth/login', { email, password });
         if (data?.token) {
@@ -56,18 +84,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    // Handles the user signup process.
     const signup = async (payload: SignupPayload): Promise<SignupResponse> => {
         const { data } = await api.post<SignupResponse>('/auth/signup', payload);
         return data;
     };
 
+    // Handles the user logout process.
     const logout = () => {
         localStorage.removeItem('accessToken');
         updateUser(null);
-        api.post('/auth/logout').catch(() => { });
+        api.post('/auth/logout').catch(() => { }); // Attempt to logout on backend, but don't block UI if it fails
         window.location.href = '/login';
     };
 
+    // The value object provided to all child components via the context.
     const value = { user, loading, login, signup, logout };
 
     return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
