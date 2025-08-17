@@ -37,8 +37,8 @@ export default function NavBar() {
                                 {isFullAdmin && (
                                     <>
                                         {navLink('/admin/holidays', 'Manage Holidays')}
-                                        {/* --- THIS IS THE CHANGE --- */}
-                                        {navLink('/admin/users/table', 'Users')}
+                                        {/* --- THIS IS THE FIX --- */}
+                                        {navLink('/admin/users', 'Users')}
                                     </>
                                 )}
                             </>

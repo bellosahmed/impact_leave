@@ -1,10 +1,9 @@
 /**
- * A simple, reusable skeleton loader component for tables.
- * It shows pulsing grey bars to indicate that data is being loaded.
+ * SkeletonLoader for table rows
  */
 export default function SkeletonLoader({ rows = 5, cols = 4 }) {
     return (
-        <tbody className="divide-y divide-gray-200">
+        <>
             {Array.from({ length: rows }).map((_, rowIndex) => (
                 <tr key={rowIndex}>
                     {Array.from({ length: cols }).map((_, colIndex) => (
@@ -14,6 +13,6 @@ export default function SkeletonLoader({ rows = 5, cols = 4 }) {
                     ))}
                 </tr>
             ))}
-        </tbody>
+        </>
     );
 }

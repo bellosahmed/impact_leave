@@ -2,57 +2,50 @@
 
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
-import type { User } from '../context/AuthContext'; // Import the User type for props
+import type { Role } from '../context/AuthContext';
 import type { JSX } from 'react';
 
 /**
  * A component that protects routes from unauthorized access.
- * It checks for authentication and authorization (roles).
- *
- * @param {JSX.Element} children - The component/page to render if the user is authorized.
- * @param {Array<User['role']>} [roles] - An optional array of roles that are allowed to access this route.
+ * This is the definitive, corrected version that understands the superadmin role.
  */
-export default function ProtectedRoute({ children, roles }: { children: JSX.Element; roles?: Array<User['role']> }) {
-    // Get the current user's state from the authentication context.
+export default function ProtectedRoute({ children, roles }: { children: JSX.Element; roles?: Array<Role> }) {
     const { user, loading } = useAuth();
 
-    // 1. Handle the loading state:
-    // While the context is fetching the user profile, show a loading indicator.
-    // This prevents a premature redirect to the login page.
+    // 1. Handle the loading state while authentication is in progress.
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center">
-                <p className="text-gray-500">Loading...</p>
+                <p className="text-gray-500">Authenticating...</p>
             </div>
         );
     }
 
-    // 2. Handle the unauthenticated state:
-    // If loading is finished and there is no user, they are not logged in.
-    // Redirect them to the login page. The `replace` prop prevents them from
-    // using the "back" button to return to the protected page.
+    // 2. Handle the unauthenticated state.
     if (!user) {
         return <Navigate to="/login" replace />;
     }
 
-    // --- THIS IS THE UPDATED AUTHORIZATION LOGIC ---
+    // --- THIS IS THE NEW, SIMPLIFIED, AND CORRECT LOGIC ---
 
-    // 3. Handle the Super Admin case (Universal Access):
-    // If the user's role is 'superadmin', they have access to everything.
-    // We immediately render the requested page without checking the `roles` prop.
-    if (user.role === 'superadmin') {
-        return children;
+    // 3. If the route requires specific roles, perform the authorization check.
+    if (roles && roles.length > 0) {
+        // Rule 1: A 'superadmin' has universal access to all protected routes.
+        // If the user is a superadmin, grant access immediately, no matter what the 'roles' prop says.
+        if (user.role === 'superadmin') {
+            return children; // Access Granted for Super Admin
+        }
+
+        // Rule 2: For everyone else, check if their role is in the list of allowed roles.
+        // This will correctly grant access to 'admins' and 'supervisors' for their specific pages.
+        if (roles.includes(user.role)) {
+            return children; // Access Granted for specific role
+        }
+
+        // Rule 3: If neither of the above is true, the user is not authorized.
+        return <Navigate to="/" replace />; // Access Denied -> Redirect to Dashboard
     }
 
-    // 4. Handle the standard role check for non-superadmins:
-    // If a `roles` array is provided, check if the user's role is included.
-    if (roles && !roles.includes(user.role)) {
-        // If the user's role is not in the allowed list, they are not authorized.
-        // Redirect them to the main dashboard.
-        return <Navigate to="/" replace />;
-    }
-
-    // 5. If all checks pass, the user is authenticated and authorized.
-    // Render the requested page.
+    // 4. If the route does not require any specific roles (like the main dashboard), grant access.
     return children;
 }

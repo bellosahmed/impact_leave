@@ -36,7 +36,7 @@ export default function AdminDashboard() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {/* --- THIS IS THE CHANGE --- */}
                         <ReportCard
-                            title="User Management"
+                            title="User Management Table"
                             to="/admin/users/table"
                             description="Add, edit, delete, and manage all users in the system."
                         />
@@ -52,11 +52,22 @@ export default function AdminDashboard() {
     );
 }
 
-// --- HELPER COMPONENTS (Unchanged) ---
+// --- HELPER COMPONENTS ---
 function StatCard({ title, value, isLink = false }: { title: string; value?: number | string; isLink?: boolean }) {
     const linkClasses = isLink ? 'hover:shadow-md hover:ring-2 hover:ring-indigo-400 transition-all cursor-pointer' : '';
-    return (<div className={`bg-white p-6 rounded-lg border shadow-sm ${linkClasses}`}><h3 className="text-sm font-medium text-gray-500 truncate">{title}</h3><p className="mt-1 text-3xl font-semibold text-gray-900">{value ?? 'N/A'}</p></div>);
+    return (
+        <div className={`bg-white p-6 rounded-lg border shadow-sm ${linkClasses}`}>
+            <h3 className="text-sm font-medium text-gray-500 truncate">{title}</h3>
+            <p className="mt-1 text-3xl font-semibold text-gray-900">{value ?? 'N/A'}</p>
+        </div>
+    );
 }
 function ReportCard({ title, to, description }: { title: string; to: string, description: string }) {
-    return (<Link to={to} className="block rounded-lg border bg-white p-6 hover:shadow-md hover:-translate-y-1 transition-transform"><h3 className="text-lg font-semibold text-gray-900">{title}</h3><p className="mt-1 text-sm text-gray-600">{description}</p><div className="mt-4 text-sm font-medium text-indigo-600">View Page →</div></Link>);
+    return (
+        <Link to={to} className="block rounded-lg border bg-white p-6 hover:shadow-md hover:-translate-y-1 transition-transform">
+            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+            <p className="mt-1 text-sm text-gray-600">{description}</p>
+            <div className="mt-4 text-sm font-medium text-indigo-600">View Page →</div>
+        </Link>
+    );
 }
