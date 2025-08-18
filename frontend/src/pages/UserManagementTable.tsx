@@ -3,9 +3,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import type { User } from '../context/AuthContext';
 import UserFormModal from '../components/UserFormModal';
 import SkeletonLoader from '../components/SkeletonLoader';
+import { useAuth } from '../context/useAuth'; // Import useAuth to check the user's role
 
 // API functions
 async function getAllUsers() {
@@ -17,6 +19,7 @@ async function deleteUser(userId: string) {
 }
 
 export default function UserManagementTable() {
+    const { user: currentUser } = useAuth(); // Get the currently logged-in user
     const queryClient = useQueryClient();
     const { data: users, isLoading } = useQuery({ queryKey: ['allUsers'], queryFn: getAllUsers });
 
@@ -46,14 +49,20 @@ export default function UserManagementTable() {
     const handleCloseModal = () => setModalState({ isOpen: false, mode: 'add', user: null });
 
     return (
-        // --- THIS IS THE UPDATED, SIMPLIFIED LAYOUT ---
-        // The "User Reports" section has been completely removed from this page.
         <div className="space-y-6">
+            <div className="flex items-center gap-4">
+                <Link to="/admin/users" className="text-sm font-medium text-indigo-600 hover:underline">
+                    ← Back to User Administration
+                </Link>
+            </div>
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-gray-800">User Management Table</h1>
-                <button onClick={handleOpenAddModal} className="bg-indigo-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-indigo-700">
-                    Add New User
-                </button>
+                {/* The "Add New User" button is now only visible to the superadmin */}
+                {currentUser?.role === 'superadmin' && (
+                    <button onClick={handleOpenAddModal} className="bg-indigo-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-indigo-700">
+                        Add New User
+                    </button>
+                )}
             </div>
 
             <div className="p-4 bg-white border rounded-lg">
@@ -73,36 +82,49 @@ export default function UserManagementTable() {
                     <thead className="bg-gray-50">
                         <tr>
                             <Th>Name</Th>
+                            <Th>Job Title</Th>
                             <Th>Email</Th>
-                            <Th>Role</Th>
+                            <Th>Privileges</Th>
                             <Th>Leave Balance</Th>
-                            <Th>Actions</Th>
+                            {/* The Actions column header is only shown to the superadmin */}
+                            {currentUser?.role === 'superadmin' && <Th>Actions</Th>}
                         </tr>
                     </thead>
                     {isLoading ? (
-                        <SkeletonLoader rows={5} cols={5} />
+                        <SkeletonLoader rows={5} cols={currentUser?.role === 'superadmin' ? 6 : 5} />
                     ) : (
                         <tbody className="divide-y divide-gray-200">
                             {filteredUsers.map(user => (
                                 <tr key={user._id}>
                                     <Td>{user.fname} {user.lname}</Td>
+                                    <Td>{user.jobTitle || 'N/A'}</Td>
                                     <Td>{user.email}</Td>
                                     <Td className="capitalize">{user.role}</Td>
                                     <Td>{user.leaveBalance}</Td>
-                                    <Td>
-                                        <div className="flex items-center gap-4 font-medium">
-                                            <button onClick={() => handleOpenEditModal(user)} className="text-indigo-600 hover:underline">Edit</button>
-                                            <button
-                                                onClick={() => { if (window.confirm(`Are you sure you want to delete ${user.fname}? This action is permanent.`)) deleteMutation.mutate(user._id) }}
-                                                className="text-red-600 hover:underline"
-                                                disabled={deleteMutation.isPending}
-                                            >
-                                                Delete
-                                            </button>
-                                        </div>
-                                    </Td>
+                                    {/* The action buttons are only rendered for the superadmin */}
+                                    {currentUser?.role === 'superadmin' && (
+                                        <Td>
+                                            <div className="flex items-center gap-4 font-medium">
+                                                <button onClick={() => handleOpenEditModal(user)} className="text-indigo-600 hover:underline">Edit</button>
+                                                <button
+                                                    onClick={() => { if (window.confirm(`Are you sure you want to delete ${user.fname}? This action is permanent.`)) deleteMutation.mutate(user._id) }}
+                                                    className="text-red-600 hover:underline"
+                                                    disabled={deleteMutation.isPending}
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </Td>
+                                    )}
                                 </tr>
                             ))}
+                            {filteredUsers.length === 0 && (
+                                <tr>
+                                    <td colSpan={currentUser?.role === 'superadmin' ? 6 : 5} className="text-center py-16 text-gray-500">
+                                        {users && users.length > 0 ? 'No users match your search.' : 'No users have been created yet.'}
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     )}
                 </table>

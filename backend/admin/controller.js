@@ -38,20 +38,27 @@ const getLeavesForUser = async (req, res) => {
 
 const getUserLeaveSummary = async (req, res) => {
     try {
-        const users = await User.find({ role: { $in: ['user', 'supervisor', 'admin'] } }).select('fname lname email leaveBalance').lean();
+        // THE FIX: Add 'jobTitle' to the list of fields to select from the User collection.
+        const users = await User.find({ role: { $in: ['user', 'supervisor', 'admin'] } })
+            .select('fname lname email leaveBalance jobTitle') // <-- 'jobTitle' is now included
+            .lean();
+
         const approvedLeaves = await Leave.find({ status: 'approved' });
         const holidays = await Holiday.find();
         const leaveDaysMap = new Map();
+
         approvedLeaves.forEach(leave => {
             const userId = leave.user.toString();
             const daysTaken = calculateLeaveDays(leave.startDate, leave.endDate, holidays);
             const currentTotal = leaveDaysMap.get(userId) || 0;
             leaveDaysMap.set(userId, currentTotal + daysTaken);
         });
+
         const summary = users.map(user => ({
             ...user,
             totalDaysTaken: leaveDaysMap.get(user._id.toString()) || 0,
         }));
+
         res.status(200).json(summary);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -138,7 +145,7 @@ const getemail = async (req, res) => {
 // --- NEW: Function for Admin to create a new user ---
 const createUserByAdmin = async (req, res) => {
     try {
-        const { fname, lname, email, phonenum, role, supervisor } = req.body;
+        const { fname, lname, email, phonenum, role, supervisor, jobTitle } = req.body;
         const tempPassword = crypto.randomBytes(20).toString('hex');
         const userExists = await User.findOne({ email: email.toLowerCase() });
 
@@ -150,7 +157,8 @@ const createUserByAdmin = async (req, res) => {
             fname, lname, email: email.toLowerCase(), password: tempPassword, phonenum,
             role: role || 'user',
             isVerified: true,
-            supervisor: supervisor || null
+            supervisor: supervisor || null,
+            jobTitle: jobTitle || ''
         });
 
         const salt = await bcrypt.genSalt(10);
@@ -202,7 +210,7 @@ const deleteUserByAdmin = async (req, res) => {
 
 const updateUserByAdmin = async (req, res) => {
     try {
-        const { fname, lname, email, phonenum, role, leaveBalance, supervisor, password } = req.body;
+        const { fname, lname, email, phonenum, role, leaveBalance, supervisor, password, jobTitle } = req.body;
         const user = await User.findById(req.params.userId);
 
         if (!user) {
@@ -216,6 +224,7 @@ const updateUserByAdmin = async (req, res) => {
         user.role = role ?? user.role;
         user.leaveBalance = leaveBalance ?? user.leaveBalance;
         user.supervisor = supervisor || null;
+        user.jobTitle = jobTitle ?? user.jobTitle;
 
         // --- THIS IS THE FIX ---
         // If a new password was provided in the form, hash it before saving.

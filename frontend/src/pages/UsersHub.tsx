@@ -1,12 +1,11 @@
 // frontend/src/pages/UsersHub.tsx
 
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/useAuth'; // <-- Import useAuth to check the user's role
 
-/**
- * This component acts as a central hub for all user-related administrative tasks.
- * It provides clear navigation to the user management table and the user leave report.
- */
 export default function UsersHub() {
+    const { user: currentUser } = useAuth(); // <-- Get the currently logged-in user
+
     return (
         <div className="space-y-8">
             <div>
@@ -15,11 +14,16 @@ export default function UsersHub() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <ReportCard
-                    title="User Management Table"
-                    to="/admin/users/table"
-                    description="Add, edit, delete, and manage all users in the system."
-                />
+                {/* --- THIS IS THE CHANGE --- */}
+                {/* The "User Management Table" card is now only visible to the superadmin */}
+                {currentUser?.role === 'superadmin' && (
+                    <ReportCard
+                        title="User Management Table"
+                        to="/admin/users/table"
+                        description="Add, edit, delete, and manage all users in the system."
+                    />
+                )}
+
                 <ReportCard
                     title="User Leave Report"
                     to="/admin/user-report"

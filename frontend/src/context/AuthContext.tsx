@@ -19,6 +19,7 @@ export type User = {
     leaveBalance: number;
     phonenum?: number;
     supervisor?: string; // This will be the ID of the supervisor user
+    jobTitle?: string;
 };
 
 // Types for the signup process.

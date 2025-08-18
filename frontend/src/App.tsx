@@ -22,7 +22,7 @@ import ManageLeaves from './pages/ManageLeaves';
 import ManageHolidays from './pages/ManageHolidays';
 import UserLeaveReport from './pages/UserLeaveReport';
 import AdminUserLeaves from './pages/AdminUserLeaves';
-import UsersHub from './pages/Usershub';
+import UsersHub from './pages/UsersHub';
 import UserManagementTable from './pages/UserManagementTable';
 
 export default function App() {

@@ -50,8 +50,8 @@ const userSchema = new mongoose.Schema({
     leaveBalance: {
         type: Number,
         default: 30
-    }
-
+    },
+    jobTitle: { type: String, trim: true },
 }, { timestamps: true }); // timestamps create when the file is created
 
 
