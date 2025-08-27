@@ -40,34 +40,31 @@ export default function MyLeaves() {
 
     // State for filters
     const [statusFilter, setStatusFilter] = useState('all');
-    const [filterDate, setFilterDate] = useState('');
+    const [startDateFilter, setStartDateFilter] = useState('');
+    const [endDateFilter, setEndDateFilter] = useState('');
 
     // State for expanding text
     const [expandedReasonId, setExpandedReasonId] = useState<string | null>(null);
     const [expandedCommentId, setExpandedCommentId] = useState<string | null>(null);
 
-    // Memoized filtering logic with the new single date filter
+    // Memoized filtering logic with the new date range filter
     const filteredLeaves = useMemo(() => {
         if (!leaves) return [];
         return leaves.filter(leave => {
             const statusMatch = statusFilter === 'all' || leave.status === statusFilter;
 
-            if (!filterDate) {
-                return statusMatch;
-            }
-
-            const filterD = new Date(filterDate);
-            filterD.setUTCHours(0, 0, 0, 0);
+            // Date range overlap logic: (StartA <= EndB) and (EndA >= StartB)
             const leaveStart = new Date(leave.startDate);
-            leaveStart.setUTCHours(0, 0, 0, 0);
             const leaveEnd = new Date(leave.endDate);
-            leaveEnd.setUTCHours(0, 0, 0, 0);
+            const filterStart = startDateFilter ? new Date(startDateFilter) : null;
+            const filterEnd = endDateFilter ? new Date(endDateFilter) : null;
 
-            const dateMatch = filterD >= leaveStart && filterD <= leaveEnd;
+            if (filterStart && leaveEnd < filterStart) return false; // Leave ends before the filter range starts
+            if (filterEnd && leaveStart > filterEnd) return false; // Leave starts after the filter range ends
 
-            return statusMatch && dateMatch;
+            return statusMatch;
         });
-    }, [leaves, statusFilter, filterDate]);
+    }, [leaves, statusFilter, startDateFilter, endDateFilter]);
 
     const handleToggleReason = (leaveId: string) => { setExpandedReasonId(currentId => (currentId === leaveId ? null : leaveId)); };
     const handleToggleComment = (leaveId: string) => { setExpandedCommentId(currentId => (currentId === leaveId ? null : leaveId)); };
@@ -79,13 +76,21 @@ export default function MyLeaves() {
         <div className="space-y-6">
             <h1 className="text-3xl font-bold text-gray-800">My Leave Requests</h1>
 
-            <div className="p-4 bg-white border rounded-lg grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 bg-white border rounded-lg grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                    <label htmlFor="date-filter" className="text-sm font-medium text-gray-700">Filter by Date</label>
+                    <label htmlFor="start-date-filter" className="text-sm font-medium text-gray-700">From</label>
                     <input
-                        id="date-filter" type="date"
+                        id="start-date-filter" type="date"
                         className="mt-1 w-full border-gray-300 rounded-md text-gray-900"
-                        value={filterDate} onChange={e => setFilterDate(e.target.value)}
+                        value={startDateFilter} onChange={e => setStartDateFilter(e.target.value)}
+                    />
+                </div>
+                <div>
+                    <label htmlFor="end-date-filter" className="text-sm font-medium text-gray-700">To</label>
+                    <input
+                        id="end-date-filter" type="date"
+                        className="mt-1 w-full border-gray-300 rounded-md text-gray-900"
+                        value={endDateFilter} onChange={e => setEndDateFilter(e.target.value)}
                     />
                 </div>
                 <div>
@@ -114,10 +119,7 @@ export default function MyLeaves() {
                                 <tr key={leave._id}>
                                     <Td>{new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}</Td>
                                     <Td className="max-w-xs align-top">
-                                        <div>
-                                            <p className={`font-medium ${isReasonExpanded ? 'whitespace-normal' : 'truncate'}`} title={isReasonExpanded ? '' : leave.reason}>{leave.reason}</p>
-                                            {leave.reason.length > 100 && (<button onClick={() => handleToggleReason(leave._id)} className="text-indigo-600 text-xs font-semibold mt-1">{isReasonExpanded ? 'Read less' : 'Read more'}</button>)}
-                                        </div>
+                                        <div><p className={`font-medium ${isReasonExpanded ? 'whitespace-normal' : 'truncate'}`} title={isReasonExpanded ? '' : leave.reason}>{leave.reason}</p>{leave.reason.length > 100 && (<button onClick={() => handleToggleReason(leave._id)} className="text-indigo-600 text-xs font-semibold mt-1">{isReasonExpanded ? 'Read less' : 'Read more'}</button>)}</div>
                                         {leave.supervisorComment && (<div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200 italic"><span className="font-semibold not-italic">Supervisor's Note:</span><p className={'whitespace-normal'}>{leave.supervisorComment}</p></div>)}
                                         {leave.adminComment && (<div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200"><span className="font-semibold not-italic capitalize">{leave.actionTakenByRole || 'Manager'}'s Note:</span><p className={isCommentExpanded ? 'whitespace-normal' : 'truncate'}>{leave.adminComment}</p>{leave.adminComment.length > 100 && (<button onClick={() => handleToggleComment(leave._id)} className="text-indigo-600 text-xs font-semibold mt-1 not-italic">{isCommentExpanded ? 'Read less' : 'Read more'}</button>)}</div>)}
                                     </Td>

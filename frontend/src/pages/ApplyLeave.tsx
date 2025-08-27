@@ -10,9 +10,9 @@ import { AxiosError } from 'axios';
 import { useState, useEffect } from 'react';
 import { DayPicker, type DateRange } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
-import { format } from 'date-fns';
+import { format, isSaturday, isSunday } from 'date-fns';
 
-// NOTE: The useOnClickOutside custom hook and useRef have been completely removed.
+// NOTE: The useOnClickOutside and useRef hooks have been completely removed.
 
 // --- TYPE DEFINITIONS & SCHEMA ---
 type Holiday = { date: string };
@@ -39,9 +39,11 @@ function calculateLeaveDays(range: DateRange | undefined, holidays: Date[] = [])
     const curDate = new Date(range.from);
     while (curDate <= range.to) {
         const dayOfWeek = curDate.getDay();
-        const dateStr = curDate.toISOString().split('T')[0];
-        if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidayDates.has(dateStr)) {
-            count++;
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Exclude Sunday (0) and Saturday (6)
+            const dateStr = format(curDate, 'yyyy-MM-dd');
+            if (!holidayDates.has(dateStr)) {
+                count++;
+            }
         }
         curDate.setDate(curDate.getDate() + 1);
     }
@@ -87,14 +89,15 @@ export default function ApplyLeave() {
         setDayCount(days);
     }, [range, holidays]);
 
-    const disabledDays = [{ before: new Date() }, { dayOfWeek: [0, 6] }, ...(holidays || [])];
+    const disabledDays = [{ before: new Date() }];
+    const modifiers = { weekend: (date: Date) => isSaturday(date) || isSunday(date), holiday: holidays || [], };
+    const modifiersStyles = { weekend: { color: 'lightgray' }, holiday: { fontWeight: 'bold', color: 'teal' }, };
 
     return (
         <div className="space-y-6">
             <h1 className="text-3xl font-bold text-gray-800">Apply for Leave</h1>
             <form onSubmit={handleSubmit(onSubmit)} className="bg-white p-8 rounded-lg border shadow-sm space-y-6 max-w-2xl">
                 <div className="grid sm:grid-cols-2 gap-6">
-                    {/* --- Start Date Input with SIMPLIFIED Popover --- */}
                     <div>
                         <label className="block text-sm font-medium mb-1 text-gray-700">Start Date</label>
                         <div className="relative">
@@ -112,14 +115,14 @@ export default function ApplyLeave() {
                                         selected={range?.from}
                                         onSelect={(date) => { setRange({ from: date, to: range?.to }); setIsStartOpen(false); }}
                                         disabled={disabledDays}
+                                        modifiers={modifiers}
+                                        modifiersStyles={modifiersStyles}
                                         initialFocus
                                     />
                                 </div>
                             )}
                         </div>
                     </div>
-
-                    {/* --- End Date Input with SIMPLIFIED Popover --- */}
                     <div>
                         <label className="block text-sm font-medium mb-1 text-gray-700">End Date</label>
                         <div className="relative">
@@ -136,7 +139,9 @@ export default function ApplyLeave() {
                                         mode="single"
                                         selected={range?.to}
                                         onSelect={(date) => { setRange({ from: range?.from, to: date }); setIsEndOpen(false); }}
-                                        disabled={[{ before: range?.from || new Date() }, ...disabledDays.slice(1)]}
+                                        disabled={[{ before: range?.from || new Date() }]}
+                                        modifiers={modifiers}
+                                        modifiersStyles={modifiersStyles}
                                         initialFocus
                                     />
                                 </div>

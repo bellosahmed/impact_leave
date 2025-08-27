@@ -190,8 +190,8 @@ async function declineLeave(req, res) {
 async function getAllLeaves(req, res) {
     try {
         const leaves = await Leave.find()
-            // THE FIX: We must add 'supervisor' to the list of fields to populate from the user document.
-            .populate("user", "fname lname email leaveBalance role supervisor")
+            // THE FIX: We add 'jobTitle' to the list of fields to populate.
+            .populate("user", "fname lname email leaveBalance role supervisor jobTitle")
             .sort({ createdAt: -1 });
         res.status(200).json(leaves);
     } catch (error) {

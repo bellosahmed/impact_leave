@@ -6,6 +6,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../context/useAuth';
 import { useSearchParams } from 'react-router-dom';
 import type { User, Role } from '../context/AuthContext';
+import SkeletonLoader from '../components/SkeletonLoader';
 
 // --- TYPE DEFINITION ---
 type Leave = {
@@ -16,6 +17,7 @@ type Leave = {
         lname: string;
         role: Role;
         supervisor?: string;
+        jobTitle?: string;
     };
     startDate: string;
     endDate: string;
@@ -128,26 +130,40 @@ export default function ManageLeaves() {
 
             <div className="overflow-x-auto bg-white border rounded-lg shadow-sm">
                 <table className="min-w-full text-sm">
-                    <thead className="bg-gray-50"><tr><Th>Employee (Role)</Th><Th>Dates</Th><Th>Reason & Notes</Th><Th>Status</Th><Th>Actions</Th></tr></thead>
-                    <tbody className="divide-y divide-gray-200">
-                        {filteredLeaves.map((leave) => {
-                            const isExpanded = expandedReasonId === leave._id;
-                            const canSupervisorAct = currentUser?.role === 'supervisor' && leave.status === 'pending' && canUserActOn(currentUser, leave.user);
-                            const canAdminAct = (currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && ['pending', 'awaiting_admin_approval'].includes(leave.status) && canUserActOn(currentUser, leave.user);
-                            const isUpdating = mutatingLeaveId === leave._id;
+                    <thead className="bg-gray-50">
+                        <tr>
+                            <Th>Employee</Th>
+                            <Th>Job Title</Th>
+                            <Th>Dates</Th>
+                            <Th>Reason & Notes</Th>
+                            <Th>Status</Th>
+                            <Th>Actions</Th>
+                        </tr>
+                    </thead>
+                    {isLoading ? (
+                        <SkeletonLoader rows={5} cols={6} />
+                    ) : (
+                        <tbody className="divide-y divide-gray-200">
+                            {filteredLeaves.map((leave) => {
+                                const isExpanded = expandedReasonId === leave._id;
+                                const canSupervisorAct = currentUser?.role === 'supervisor' && leave.status === 'pending' && canUserActOn(currentUser, leave.user);
+                                const canAdminAct = (currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && ['pending', 'awaiting_admin_approval'].includes(leave.status) && canUserActOn(currentUser, leave.user);
+                                const isUpdating = mutatingLeaveId === leave._id;
 
-                            return (
-                                <tr key={leave._id}>
-                                    <Td><p className="font-medium">{leave.user?.fname} {leave.user?.lname}</p><p className="text-xs text-gray-500 capitalize">{leave.user?.role}</p></Td>
-                                    <Td>{new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}</Td>
-                                    <Td className="max-w-xs align-top"><p className={`font-medium ${isExpanded ? 'whitespace-normal' : 'truncate'}`}>{leave.reason}</p>{leave.reason.length > 100 && (<button onClick={() => handleToggleReason(leave._id)} className="text-indigo-600 text-xs font-semibold mt-1">{isExpanded ? 'Read less' : 'Read more'}</button>)}{leave.supervisorComment && (<p className="text-xs text-gray-500 mt-1 italic"><span className="font-semibold not-italic">Supervisor Note:</span> {leave.supervisorComment}</p>)}{leave.adminComment && (<p className="text-xs text-gray-500 mt-1"><span className="font-semibold capitalize not-italic">{leave.actionTakenByRole || 'Manager'} Note:</span> {leave.adminComment}</p>)}</Td>
-                                    <Td><StatusDisplay leave={leave} /></Td>
-                                    <Td>{isUpdating ? (<span className="text-xs text-gray-500 italic">Updating...</span>) : ((canSupervisorAct || canAdminAct) && (<div className="flex items-center gap-4"><button onClick={() => handleOpenModal(leave, 'approve')} className="font-medium text-green-600">Approve</button><button onClick={() => handleOpenModal(leave, 'decline')} className="font-medium text-red-600">Decline</button></div>))}</Td>
-                                </tr>
-                            );
-                        })}
-                        {filteredLeaves.length === 0 && (<tr><td colSpan={5} className="text-center py-16 text-gray-500">{leaves && leaves.length > 0 ? 'No leave requests match your filters.' : 'No pending leave requests found.'}</td></tr>)}
-                    </tbody>
+                                return (
+                                    <tr key={leave._id}>
+                                        <Td><p className="font-medium">{leave.user?.fname} {leave.user?.lname}</p><p className="text-xs text-gray-500 capitalize">{leave.user?.role}</p></Td>
+                                        <Td>{leave.user.jobTitle || 'N/A'}</Td>
+                                        <Td>{new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}</Td>
+                                        <Td className="max-w-xs align-top"><p className={`font-medium ${isExpanded ? 'whitespace-normal' : 'truncate'}`}>{leave.reason}</p>{leave.reason.length > 100 && (<button onClick={() => handleToggleReason(leave._id)} className="text-indigo-600 text-xs font-semibold mt-1">{isExpanded ? 'Read less' : 'Read more'}</button>)}{leave.supervisorComment && (<p className="text-xs text-gray-500 mt-1 italic"><span className="font-semibold not-italic">Supervisor Note:</span> {leave.supervisorComment}</p>)}{leave.adminComment && (<p className="text-xs text-gray-500 mt-1"><span className="font-semibold capitalize not-italic">{leave.actionTakenByRole || 'Manager'} Note:</span> {leave.adminComment}</p>)}</Td>
+                                        <Td><StatusDisplay leave={leave} /></Td>
+                                        <Td>{isUpdating ? (<span className="text-xs text-gray-500 italic">Updating...</span>) : ((canSupervisorAct || canAdminAct) && (<div className="flex items-center gap-4"><button onClick={() => handleOpenModal(leave, 'approve')} className="font-medium text-green-600">Approve</button><button onClick={() => handleOpenModal(leave, 'decline')} className="font-medium text-red-600">Decline</button></div>))}</Td>
+                                    </tr>
+                                );
+                            })}
+                            {filteredLeaves.length === 0 && (<tr><td colSpan={6} className="text-center py-16 text-gray-500">{leaves && leaves.length > 0 ? 'No leave requests match your filters.' : 'No pending leave requests found.'}</td></tr>)}
+                        </tbody>
+                    )}
                 </table>
             </div>
             {modalState.isOpen && (
@@ -162,5 +178,5 @@ export default function ManageLeaves() {
 // --- HELPER COMPONENTS ---
 function Th({ children }: { children: React.ReactNode }) { return <th className="text-left px-6 py-3 font-medium text-gray-500 uppercase tracking-wider">{children}</th>; }
 function Td({ children, className = '', ...rest }: React.ComponentProps<'td'>) { return <td className={`px-6 py-4 whitespace-nowrap text-gray-700 ${className}`} {...rest}>{children}</td>; }
-function StatusBadge({ status }: { status: Leave['status'] }) { const styles: Record<string, string> = { pending: 'bg-yellow-100 text-yellow-800', approved: 'bg-green-100 text-green-800', declined: 'bg-red-100 text-red-800', awaiting_admin_approval: 'bg-blue-100 text-blue-800' }; const displayMap: Record<string, string> = { pending: "Pending Supervisor", awaiting_admin_approval: "Awaiting Admin", approved: "Approved", declined: "Declined" }; return <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${styles[status]}`}>{displayMap[status]}</span>; }
+function StatusBadge({ status }: { status: Leave['status'] }) { const styles: Record<string, string> = { pending: 'bg-yellow-100 text-yellow-800', approved: 'bg-green-100 text-green-800', declined: 'bg-red-100 text-red-800', awaiting_admin_approval: 'bg-blue-100 text-blue-800' }; const displayMap: Record<string, string> = { pending: "Pending Supervisor", awaiting_admin_approval: "Awaiting Admin", approved: "Approved", declined: "Declined" }; return <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full capitalize ${styles[status]}`}>{displayMap[status]}</span>; }
 function StatusDisplay({ leave }: { leave: Leave }) { if (leave.status === 'awaiting_admin_approval') { const supDecisionStyle = leave.supervisorDecision === 'approved' ? 'text-green-700' : 'text-red-700'; return <div className="text-xs text-center"><StatusBadge status="awaiting_admin_approval" /> <span className={`block font-semibold ${supDecisionStyle}`}>Supervisor {leave.supervisorDecision}</span></div>; } return <StatusBadge status={leave.status} />; }

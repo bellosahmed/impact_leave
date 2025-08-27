@@ -7,21 +7,8 @@ import React, { useState, useMemo } from 'react';
 import type { Role } from '../context/AuthContext';
 
 // --- TYPE DEFINITIONS ---
-type Leave = {
-    _id: string;
-    startDate: string;
-    endDate: string;
-    reason: string;
-    status: 'pending' | 'approved' | 'declined' | 'awaiting_admin_approval';
-    adminComment?: string;
-    actionTakenByRole?: Role;
-    supervisorDecision: 'pending' | 'approved' | 'declined';
-    supervisorComment?: string;
-};
-type UserLeaveData = {
-    user: { fname: string; lname: string };
-    leaves: Leave[];
-};
+type Leave = { _id: string; startDate: string; endDate: string; reason: string; status: 'pending' | 'approved' | 'declined' | 'awaiting_admin_approval'; adminComment?: string; actionTakenByRole?: Role; supervisorDecision: 'pending' | 'approved' | 'declined'; supervisorComment?: string; };
+type UserLeaveData = { user: { fname: string; lname: string }; leaves: Leave[]; };
 
 // --- API FUNCTION ---
 async function getLeavesForUser(userId: string | undefined): Promise<UserLeaveData | null> {
@@ -35,7 +22,8 @@ export default function AdminUserLeaves() {
     const { userId } = useParams<{ userId: string }>();
 
     const [statusFilter, setStatusFilter] = useState('all');
-    const [filterDate, setFilterDate] = useState('');
+    const [startDateFilter, setStartDateFilter] = useState('');
+    const [endDateFilter, setEndDateFilter] = useState('');
     const [expandedReasonId, setExpandedReasonId] = useState<string | null>(null);
     const [expandedCommentId, setExpandedCommentId] = useState<string | null>(null);
 
@@ -49,17 +37,15 @@ export default function AdminUserLeaves() {
         if (!data?.leaves) return [];
         return data.leaves.filter(leave => {
             const statusMatch = statusFilter === 'all' || leave.status === statusFilter;
-            if (!filterDate) return statusMatch;
-            const filterDateObj = new Date(filterDate);
-            filterDateObj.setUTCHours(0, 0, 0, 0);
             const leaveStart = new Date(leave.startDate);
-            leaveStart.setUTCHours(0, 0, 0, 0);
             const leaveEnd = new Date(leave.endDate);
-            leaveEnd.setUTCHours(0, 0, 0, 0);
-            const dateMatch = filterDateObj >= leaveStart && filterDateObj <= leaveEnd;
-            return statusMatch && dateMatch;
+            const filterStart = startDateFilter ? new Date(startDateFilter) : null;
+            const filterEnd = endDateFilter ? new Date(endDateFilter) : null;
+            if (filterStart && leaveEnd < filterStart) return false;
+            if (filterEnd && leaveStart > filterEnd) return false;
+            return statusMatch;
         });
-    }, [data, statusFilter, filterDate]);
+    }, [data, statusFilter, startDateFilter, endDateFilter]);
 
     const handleToggleReason = (leaveId: string) => { setExpandedReasonId(currentId => (currentId === leaveId ? null : leaveId)); };
     const handleToggleComment = (leaveId: string) => { setExpandedCommentId(currentId => (currentId === leaveId ? null : leaveId)); };
@@ -71,8 +57,9 @@ export default function AdminUserLeaves() {
         <div className="space-y-6">
             <div className="flex items-center gap-4"><Link to="/admin/user-report" className="text-sm font-medium text-indigo-600 hover:underline">← Back to Report</Link></div>
             <h1 className="text-3xl font-bold text-gray-800">Leave History for {data?.user.fname} {data?.user.lname}</h1>
-            <div className="p-4 bg-white border rounded-lg grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><label htmlFor="date-filter" className="text-sm font-medium text-gray-700">Filter by Date</label><input id="date-filter" type="date" className="mt-1 w-full border-gray-300 rounded-md text-gray-900" value={filterDate} onChange={e => setFilterDate(e.target.value)} /></div>
+            <div className="p-4 bg-white border rounded-lg grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div><label htmlFor="start-date-filter" className="text-sm font-medium text-gray-700">From</label><input id="start-date-filter" type="date" className="mt-1 w-full border-gray-300 rounded-md text-gray-900" value={startDateFilter} onChange={e => setStartDateFilter(e.target.value)} /></div>
+                <div><label htmlFor="end-date-filter" className="text-sm font-medium text-gray-700">To</label><input id="end-date-filter" type="date" className="mt-1 w-full border-gray-300 rounded-md text-gray-900" value={endDateFilter} onChange={e => setEndDateFilter(e.target.value)} /></div>
                 <div><label htmlFor="status-filter" className="text-sm font-medium text-gray-700">Status</label><select id="status-filter" className="mt-1 w-full border-gray-300 rounded-md text-gray-900" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option value="all">All Statuses</option><option value="pending">Pending Supervisor</option><option value="awaiting_admin_approval">Awaiting Admin</option><option value="approved">Approved</option><option value="declined">Declined</option></select></div>
             </div>
             <div className="overflow-x-auto bg-white border rounded-lg shadow-sm">

@@ -34,12 +34,15 @@ export default function AdminDashboard() {
                 <div className="mt-8">
                     <h2 className="text-2xl font-bold text-gray-800 mb-4">Management & Reports</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {/* --- THIS IS THE CHANGE --- */}
-                        <ReportCard
-                            title="User Management Table"
-                            to="/admin/users/table"
-                            description="Add, edit, delete, and manage all users in the system."
-                        />
+                        {/* Show only for superadmin */}
+                        {currentUser?.role === 'superadmin' && (
+                            <ReportCard
+                                title="User Management Table"
+                                to="/admin/users/table"
+                                description="Add, edit, delete, and manage all users in the system."
+                            />
+                        )}
+                        {/* Show for both admin and superadmin */}
                         <ReportCard
                             title="User Leave Report"
                             to="/admin/user-report"
@@ -62,6 +65,7 @@ function StatCard({ title, value, isLink = false }: { title: string; value?: num
         </div>
     );
 }
+
 function ReportCard({ title, to, description }: { title: string; to: string, description: string }) {
     return (
         <Link to={to} className="block rounded-lg border bg-white p-6 hover:shadow-md hover:-translate-y-1 transition-transform">
