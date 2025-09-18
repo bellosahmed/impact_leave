@@ -1,5 +1,8 @@
 // backend/app.js
 
+// ======================
+// 1. IMPORT DEPENDENCIES
+// ======================
 const express = require('express');
 const dotenv = require('dotenv');
 dotenv.config();
@@ -8,53 +11,66 @@ const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const db = require('./config/db');
 
-// Security Imports (express-mongo-sanitize has been removed)
+// Security
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
-// Route Imports
+// Routes
 const authRoute = require('./auth/route');
 const userRoute = require('./user/route');
 const leaveRoute = require('./leave/route');
 const adminRoute = require('./admin/route');
 const holidayRoute = require('./holiday/route');
+
+// Utils
 const resetLeaveBalance = require('./utils/resetleave');
 
+// ======================
+// 2. INIT EXPRESS & DB
+// ======================
 db();
 const app = express();
 
-// ===============================================
-// --- 1. GLOBAL SECURITY MIDDLEWARE ---
-// ===============================================
+// ======================
+// 3. SECURITY MIDDLEWARE
+// ======================
+app.use(helmet());
 
-app.use(helmet({ contentSecurityPolicy: { /* your CSP config */ } }));
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
-
+// Rate limiting (200 requests / 15min per IP)
 const apiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 200,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: 'Too many requests from this IP, please try again after 15 minutes.'
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many requests from this IP, please try again after 15 minutes.'
 });
 app.use('/api', apiLimiter);
 
-// ===============================================
-// --- 2. DATA PARSING & SANITIZATION MIDDLEWARE ---
-// ===============================================
+// ======================
+// 4. CORS CONFIG
+// ======================
+// Allow multiple client URLs (comma-separated in env)
+const clientOrigins = (process.env.CLIENT_URL || 'http://localhost:5173').split(',');
 
-// Body parsers
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // allow Postman / server-to-server
+    if (clientOrigins.includes(origin)) return callback(null, true);
+    callback(new Error('CORS policy: origin not allowed'));
+  },
+  credentials: true,
+}));
+
+// ======================
+// 5. BODY PARSERS
+// ======================
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(cookieParser());
 
-// --- The express-mongo-sanitize middleware has been completely removed ---
-// Your application is still protected by Mongoose's schema validation and express-validator.
-
-// ===============================================
-// --- 3. APPLICATION LOGIC & ROUTES ---
-// ===============================================
-
+// ======================
+// 6. ROUTES
+// ======================
 resetLeaveBalance();
 
 app.use('/api/auth', authRoute);
@@ -63,23 +79,22 @@ app.use('/api/leave', leaveRoute);
 app.use('/api/admin', adminRoute);
 app.use('/api/holidays', holidayRoute);
 
+// Health check route
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
-// ===============================================
-// --- 4. ERROR HANDLING ---
-// ===============================================
-
+// ======================
+// 7. ERROR HANDLING
+// ======================
 app.use((err, req, res, next) => {
-    console.error('--- UNHANDLED ERROR ---', err);
-    res.status(500).json({
-        status: 'error',
-        message: 'Something went very wrong on the server.'
-    });
+  console.error('--- UNHANDLED ERROR ---', err);
+  res.status(500).json({
+    status: 'error',
+    message: 'Something went very wrong on the server.'
+  });
 });
 
-// ===============================================
-// --- 5. START SERVER ---
-// ===============================================
-
+// ======================
+// 8. START SERVER
+// ======================
 const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`Server running on http://localhost:${port}`));
+app.listen(port, () => console.log(`✅ Server running on http://localhost:${port}`));
