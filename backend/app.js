@@ -1,5 +1,3 @@
-// backend/app.js
-
 // ======================
 // 1. IMPORT DEPENDENCIES
 // ======================
@@ -49,18 +47,23 @@ app.use('/api', apiLimiter);
 // ======================
 // 4. CORS CONFIG
 // ======================
-// Allow multiple client URLs (comma-separated in env)
-const clientOrigins = (process.env.CLIENT_URL || 'http://localhost:5173').split(',');
+// Allowed frontend domains (local + vercel)
+const clientOrigins = [
+  'http://localhost:5173',                        // local dev (Vite)
+  'https://impact-leave.vercel.app',              // Vercel main frontend
+  'https://impact-leave-frontend.vercel.app'      // (optional) if you rename project
+];
 
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true); // allow Postman / server-to-server
     if (clientOrigins.includes(origin)) return callback(null, true);
-    callback(new Error('CORS policy: origin not allowed'));
+    return callback(new Error(`CORS policy: ${origin} not allowed`));
   },
   credentials: true,
 }));
 
+// Trust proxy (important for rate-limiter + Render)
 app.set('trust proxy', 1);
 
 // ======================
@@ -99,4 +102,6 @@ app.use((err, req, res, next) => {
 // 8. START SERVER
 // ======================
 const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`✅ Server running on http://localhost:${port}`));
+app.listen(port, () =>
+  console.log(`✅ Server running on http://localhost:${port}`)
+);
