@@ -88,9 +88,10 @@ export default function Login() {
                         {loading ? 'Signing in...' : 'Sign In'}
                     </button>
                 </form>
-                <p className="text-center text-sm text-gray-600 mt-6">
-                    Don't have an account? <Link to="/signup" className="font-medium text-indigo-600 hover:underline">Sign up</Link>
-                </p>
+                {false && (
+    <p className="text-center text-sm text-gray-600 mt-6">
+        Don't have an account? <Link to="/signup" className="font-medium text-indigo-600 hover:underline">Sign up</Link>
+    </p>)}
             </div>
         </div>
     );
