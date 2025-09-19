@@ -208,7 +208,8 @@ const forgotpass = async (req, res) => {
         await reset.save();
 
         // Send the password reset email with the new link
-        const resetURL = `http://localhost:5173/reset-password?token=${resetToken}&id=${user._id}`;
+        const client_url = process.env.CLIENT_URL || 'http://localhost:5173';
+        const resetURL = `${client_url}/reset-password?token=${resetToken}&id=${user._id}`;
 
         const transporter = createTransporter();
         const subject = 'Password Reset Request';
