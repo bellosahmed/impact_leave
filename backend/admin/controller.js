@@ -144,7 +144,6 @@ const getemail = async (req, res) => {
 
 // --- NEW: Function for Admin to create a new user ---
 const createUserByAdmin = async (req, res) => {
-    const client_url = import.meta.env.CLIENT_URL || 'http://localhost:5173';
     try {
         const { fname, lname, email, phonenum, role, supervisor, jobTitle } = req.body;
         const tempPassword = crypto.randomBytes(20).toString('hex');
@@ -178,6 +177,7 @@ const createUserByAdmin = async (req, res) => {
 
         // --- Send the "Welcome & Set Password" Email ---
         // This link contains the raw token and user ID, which the frontend will use.
+        const client_url = process.env.FRONTEND_URL || 'http://localhost:5173';
         const resetURL = `${client_url}/reset-password?token=${resetToken}&id=${newUser._id}`;
 
         const transporter = createTransporter();
