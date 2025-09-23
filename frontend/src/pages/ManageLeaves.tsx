@@ -53,7 +53,10 @@ function canUserActOn(currentUser: User | null, requestor: Leave['user']): boole
 export default function ManageLeaves() {
     const { user: currentUser } = useAuth();
     const queryClient = useQueryClient();
-    const { data: leaves, isLoading, error } = useQuery({ queryKey: ['allLeaves'], queryFn: getAllLeaves });
+    const { data: leaves = [], isLoading, error } = useQuery({
+        queryKey: ['allLeaves'],
+        queryFn: getAllLeaves
+    });
 
     const [searchParams, setSearchParams] = useSearchParams();
     const initialStatus = searchParams.get('status') || 'all';
@@ -65,18 +68,20 @@ export default function ManageLeaves() {
     const [expandedReasonId, setExpandedReasonId] = useState<string | null>(null);
     const [mutatingLeaveId, setMutatingLeaveId] = useState<string | null>(null);
 
-    useEffect(() => { setStatusFilter(searchParams.get('status') || 'all'); }, [searchParams]);
+    useEffect(() => { 
+        setStatusFilter(searchParams.get('status') || 'all'); 
+    }, [searchParams]);
 
     const filteredLeaves = useMemo(() => {
-        if (!leaves) return [];
-
+        if (!leaves) return []
+        
         let leavesToDisplay = leaves;
         if (currentUser?.role === 'supervisor') {
-            leavesToDisplay = leaves.filter(leave => leave.user.supervisor === currentUser._id);
+            leavesToDisplay = leaves.filter(leave => leave.user?.supervisor === currentUser._id);
         }
 
         return leavesToDisplay.filter(leave => {
-            const fullName = `${leave.user.fname} ${leave.user.lname}`.toLowerCase();
+            const fullName = `${leave.user?.fname} ${leave.user?.lname}`.toLowerCase();
             const nameMatch = searchTerm ? fullName.includes(searchTerm.toLowerCase()) : true;
             const statusMatch = statusFilter === 'all' || leave.status === statusFilter;
             return nameMatch && statusMatch;
@@ -144,7 +149,7 @@ export default function ManageLeaves() {
                         <SkeletonLoader rows={5} cols={6} />
                     ) : (
                         <tbody className="divide-y divide-gray-200">
-                            {filteredLeaves.map((leave) => {
+                            {filteredLeaves.length > 0 && filteredLeaves.map((leave) => {
                                 const isExpanded = expandedReasonId === leave._id;
                                 const canSupervisorAct = currentUser?.role === 'supervisor' && leave.status === 'pending' && canUserActOn(currentUser, leave.user);
                                 const canAdminAct = (currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && ['pending', 'awaiting_admin_approval'].includes(leave.status) && canUserActOn(currentUser, leave.user);
@@ -153,7 +158,7 @@ export default function ManageLeaves() {
                                 return (
                                     <tr key={leave._id}>
                                         <Td><p className="font-medium">{leave.user?.fname} {leave.user?.lname}</p><p className="text-xs text-gray-500 capitalize">{leave.user?.role}</p></Td>
-                                        <Td>{leave.user.jobTitle || 'N/A'}</Td>
+                                        <Td>{leave.user?.jobTitle || 'N/A'}</Td>
                                         <Td>{new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}</Td>
                                         <Td className="max-w-xs align-top"><p className={`font-medium ${isExpanded ? 'whitespace-normal' : 'truncate'}`}>{leave.reason}</p>{leave.reason.length > 100 && (<button onClick={() => handleToggleReason(leave._id)} className="text-indigo-600 text-xs font-semibold mt-1">{isExpanded ? 'Read less' : 'Read more'}</button>)}{leave.supervisorComment && (<p className="text-xs text-gray-500 mt-1 italic"><span className="font-semibold not-italic">Supervisor Note:</span> {leave.supervisorComment}</p>)}{leave.adminComment && (<p className="text-xs text-gray-500 mt-1"><span className="font-semibold capitalize not-italic">{leave.actionTakenByRole || 'Manager'} Note:</span> {leave.adminComment}</p>)}</Td>
                                         <Td><StatusDisplay leave={leave} /></Td>
